@@ -1,4 +1,4 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { ErrorInfo, ReactNode } from 'react';
 import { AlertCircle, RefreshCcw, Home } from 'lucide-react';
 
 interface Props {
@@ -10,7 +10,8 @@ interface State {
   error: Error | null;
 }
 
-class ErrorBoundary extends Component<Props, State> {
+// Fix: Explicitly extending React.Component to ensure the TypeScript compiler correctly identifies the class as a React component, granting access to setState and props.
+class ErrorBoundary extends React.Component<Props, State> {
   public state: State = {
     hasError: false,
     error: null
