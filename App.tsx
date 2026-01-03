@@ -29,7 +29,7 @@ import {
   Loader2, FileUp, TrendingUp, Users, 
   ArrowRight, Bot, Upload, Edit, Lightbulb,
   Award, BarChart3, Zap, Activity, Sparkles, ChevronRight, Target,
-  LogIn, LogOut, ShieldCheck, Mail, Lock, UserPlus, Filter, Paperclip, Link, Download, ExternalLink, FileText
+  LogIn, LogOut, ShieldCheck, Mail, Lock, UserPlus, Filter, Paperclip, Link, Download, ExternalLink, FileText, Calendar
 } from 'lucide-react';
 
 const firebaseConfig = {
@@ -60,6 +60,7 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'list' | 'stats' | 'chat'>('list');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLevels, setSelectedLevels] = useState<InitiativeLevel[]>([]);
+  const [selectedYears, setSelectedYears] = useState<number[]>([]);
   const [selectedUnit, setSelectedUnit] = useState<string | null>(null);
   const [drillDownUnit, setDrillDownUnit] = useState<string | null>(null);
   const [aiInsight, setAiInsight] = useState<string>('');
@@ -176,6 +177,13 @@ const App: React.FC = () => {
     return { total, currentYearCount, growth, levelDist, topUnits, fieldDist };
   }, [initiatives]);
 
+  // Extract unique years for filtering
+  const availableYears = useMemo(() => {
+    const years = new Set<number>();
+    initiatives.forEach(i => years.add(i.year));
+    return Array.from(years).sort((a, b) => b - a);
+  }, [initiatives]);
+
   // Filtering Handlers
   const toggleLevelFilter = (level: InitiativeLevel) => {
     setSelectedLevels(prev => 
@@ -183,15 +191,23 @@ const App: React.FC = () => {
     );
   };
 
+  const toggleYearFilter = (year: number) => {
+    setSelectedYears(prev => 
+      prev.includes(year) ? prev.filter(y => y !== year) : [...prev, year]
+    );
+  };
+
   const handleFilterByLevel = (level: InitiativeLevel) => {
     setSelectedLevels([level]);
     setSelectedUnit(null);
+    setSelectedYears([]);
     setActiveTab('list');
   };
 
   const handleFilterByUnit = (unit: string) => {
     setSelectedUnit(unit);
     setSelectedLevels([]);
+    setSelectedYears([]);
     setActiveTab('list');
   };
 
@@ -266,10 +282,11 @@ const App: React.FC = () => {
                            (i.authors?.some(a => a.toLowerCase().includes(searchTerm.toLowerCase())));
       const matchesLevel = selectedLevels.length === 0 || 
                           (i.level && i.level.some(l => selectedLevels.includes(l as InitiativeLevel)));
+      const matchesYear = selectedYears.length === 0 || selectedYears.includes(i.year);
       const matchesUnit = !selectedUnit || i.unit === selectedUnit;
-      return matchesSearch && matchesLevel && matchesUnit;
+      return matchesSearch && matchesLevel && matchesUnit && matchesYear;
     });
-  }, [searchTerm, selectedLevels, selectedUnit, initiatives]);
+  }, [searchTerm, selectedLevels, selectedUnit, selectedYears, initiatives]);
 
   const handleSendMessage = async () => {
     if (!userInput.trim() || isTyping) return;
@@ -332,7 +349,7 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* User Info (Only if logged in) */}
+        {/* User Info */}
         {user && (
           <div className="mb-8 p-4 rounded-2xl bg-slate-800/50 border border-slate-700/50 animate-slide">
             <div className="flex items-center gap-3">
@@ -398,38 +415,66 @@ const App: React.FC = () => {
           </div>
 
           {activeTab === 'list' && (
-            <div className="flex flex-wrap items-center gap-4 bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm animate-slide">
-              <div className="flex items-center gap-2 text-slate-400 mr-2 font-black text-[10px] uppercase tracking-widest"><Filter size={14} /> Bộ lọc:</div>
-              <div className="flex flex-wrap gap-2">
-                {(['HLH', 'NPSC', 'NPC', 'EVN'] as InitiativeLevel[]).map(lvl => (
-                  <button
-                    key={lvl}
-                    onClick={() => toggleLevelFilter(lvl)}
-                    className={`px-5 py-2 rounded-xl text-xs font-black transition-all border-2 ${
-                      selectedLevels.includes(lvl) 
-                      ? `${LEVEL_COLORS[lvl]} text-white border-transparent shadow-lg scale-105` 
-                      : 'bg-white text-slate-400 border-slate-100 hover:border-slate-300'
-                    }`}
-                  >
-                    {lvl}
-                  </button>
-                ))}
-              </div>
+            <div className="flex flex-col gap-4 bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm animate-slide">
+              <div className="flex items-center gap-2 text-slate-400 font-black text-[10px] uppercase tracking-widest"><Filter size={14} /> Bộ lọc nâng cao:</div>
               
-              {selectedUnit && (
-                <div className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 animate-slide">
-                  <Building2 size={14} /> {selectedUnit}
-                  <button onClick={() => setSelectedUnit(null)} className="hover:text-rose-500 transition-colors"><X size={14}/></button>
-                </div>
-              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 {/* Level Filter */}
+                 <div className="space-y-3">
+                    <p className="text-[9px] font-black text-slate-400 uppercase ml-2 flex items-center gap-1.5"><Award size={10}/> Cấp công nhận</p>
+                    <div className="flex flex-wrap gap-2">
+                      {(['HLH', 'NPSC', 'NPC', 'EVN'] as InitiativeLevel[]).map(lvl => (
+                        <button
+                          key={lvl}
+                          onClick={() => toggleLevelFilter(lvl)}
+                          className={`px-4 py-2 rounded-xl text-[10px] font-black transition-all border-2 ${
+                            selectedLevels.includes(lvl) 
+                            ? `${LEVEL_COLORS[lvl]} text-white border-transparent shadow-lg scale-105` 
+                            : 'bg-white text-slate-400 border-slate-100 hover:border-slate-300'
+                          }`}
+                        >
+                          {lvl}
+                        </button>
+                      ))}
+                    </div>
+                 </div>
 
-              {(selectedLevels.length > 0 || selectedUnit) && (
-                <button 
-                  onClick={() => { setSelectedLevels([]); setSelectedUnit(null); }} 
-                  className="ml-auto text-xs font-black text-rose-500 hover:underline flex items-center gap-1"
-                >
-                  <X size={14} /> Xóa tất cả lọc
-                </button>
+                 {/* Year Filter */}
+                 <div className="space-y-3">
+                    <p className="text-[9px] font-black text-slate-400 uppercase ml-2 flex items-center gap-1.5"><Calendar size={10}/> Năm công nhận</p>
+                    <div className="flex flex-wrap gap-2">
+                      {availableYears.map(year => (
+                        <button
+                          key={year}
+                          onClick={() => toggleYearFilter(year)}
+                          className={`px-4 py-2 rounded-xl text-[10px] font-black transition-all border-2 ${
+                            selectedYears.includes(year) 
+                            ? 'bg-emerald-600 text-white border-transparent shadow-lg scale-105' 
+                            : 'bg-white text-slate-400 border-slate-100 hover:border-slate-300'
+                          }`}
+                        >
+                          {year}
+                        </button>
+                      ))}
+                    </div>
+                 </div>
+              </div>
+
+              {(selectedLevels.length > 0 || selectedUnit || selectedYears.length > 0) && (
+                <div className="pt-4 border-t border-slate-50 flex flex-wrap items-center gap-3">
+                   {selectedUnit && (
+                     <div className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded-lg text-[10px] font-black flex items-center gap-2">
+                       <Building2 size={12} /> {selectedUnit}
+                       <button onClick={() => setSelectedUnit(null)} className="hover:text-rose-500"><X size={12}/></button>
+                     </div>
+                   )}
+                   <button 
+                     onClick={() => { setSelectedLevels([]); setSelectedUnit(null); setSelectedYears([]); }} 
+                     className="ml-auto text-[10px] font-black text-rose-500 hover:underline flex items-center gap-1 uppercase tracking-wider"
+                   >
+                     <X size={12} /> Xóa tất cả bộ lọc
+                   </button>
+                </div>
               )}
             </div>
           )}
