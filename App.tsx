@@ -29,7 +29,7 @@ import {
   Loader2, FileUp, TrendingUp, Users, 
   ArrowRight, Bot, Upload, Edit, Lightbulb,
   Award, BarChart3, Zap, Activity, Sparkles, ChevronRight, Target,
-  LogIn, LogOut, ShieldCheck, Mail, Lock, UserPlus
+  LogIn, LogOut, ShieldCheck, Mail, Lock, UserPlus, Filter
 } from 'lucide-react';
 
 const firebaseConfig = {
@@ -181,6 +181,25 @@ const App: React.FC = () => {
     const unitInits = initiatives.filter(i => i.unit === drillDownUnit);
     return { count: unitInits.length };
   }, [drillDownUnit, initiatives]);
+
+  // Filtering Handlers
+  const toggleLevelFilter = (level: InitiativeLevel) => {
+    setSelectedLevels(prev => 
+      prev.includes(level) ? prev.filter(l => l !== level) : [...prev, level]
+    );
+  };
+
+  const handleFilterByLevel = (level: InitiativeLevel) => {
+    setSelectedLevels([level]);
+    setSelectedUnit(null);
+    setActiveTab('list');
+  };
+
+  const handleFilterByUnit = (unit: string) => {
+    setSelectedUnit(unit);
+    setSelectedLevels([]);
+    setActiveTab('list');
+  };
 
   const handleEditInitiative = (init: Initiative) => {
     if (!user) return;
@@ -357,52 +376,100 @@ const App: React.FC = () => {
               </div>
             )}
           </div>
+
+          {/* Filtering UI inside Category Header */}
+          {activeTab === 'list' && (
+            <div className="flex flex-wrap items-center gap-4 bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm animate-slide">
+              <div className="flex items-center gap-2 text-slate-400 mr-2 font-black text-[10px] uppercase tracking-widest"><Filter size={14} /> Bộ lọc:</div>
+              <div className="flex flex-wrap gap-2">
+                {(['HLH', 'NPSC', 'NPC', 'EVN'] as InitiativeLevel[]).map(lvl => (
+                  <button
+                    key={lvl}
+                    onClick={() => toggleLevelFilter(lvl)}
+                    className={`px-5 py-2 rounded-xl text-xs font-black transition-all border-2 ${
+                      selectedLevels.includes(lvl) 
+                      ? `${LEVEL_COLORS[lvl]} text-white border-transparent shadow-lg scale-105` 
+                      : 'bg-white text-slate-400 border-slate-100 hover:border-slate-300'
+                    }`}
+                  >
+                    {lvl}
+                  </button>
+                ))}
+              </div>
+              
+              {selectedUnit && (
+                <div className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 animate-slide">
+                  <Building2 size={14} /> {selectedUnit}
+                  <button onClick={() => setSelectedUnit(null)} className="hover:text-rose-500 transition-colors"><X size={14}/></button>
+                </div>
+              )}
+
+              {(selectedLevels.length > 0 || selectedUnit) && (
+                <button 
+                  onClick={() => { setSelectedLevels([]); setSelectedUnit(null); }} 
+                  className="ml-auto text-xs font-black text-rose-500 hover:underline flex items-center gap-1"
+                >
+                  <X size={14} /> Xóa tất cả lọc
+                </button>
+              )}
+            </div>
+          )}
         </header>
 
         {activeTab === 'list' ? (
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-            {filteredInitiatives.map((item) => (
-              <div key={item.id} className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 hover:shadow-2xl transition-all group animate-slide">
-                <div className="flex justify-between items-start mb-6">
-                  <div className="flex flex-wrap gap-2">
-                    <span className="bg-slate-900 text-white px-3 py-1.5 rounded-xl text-[10px] font-black uppercase shadow-sm">{item.year}</span>
-                    {item.level?.map(lvl => (
-                      <span key={lvl} className={`${LEVEL_COLORS[lvl as InitiativeLevel] || 'bg-slate-400'} text-white px-3 py-1.5 rounded-xl text-[10px] font-black uppercase shadow-sm`}>{lvl}</span>
-                    ))}
-                    {item.unit && <span className="bg-indigo-50 text-indigo-700 border border-indigo-100 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase flex items-center gap-1.5 shadow-sm"><Building2 size={10} /> {item.unit}</span>}
-                  </div>
-                  {user && (
-                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => handleEditInitiative(item)} className="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl transition-all"><Edit size={18} /></button>
-                      <button onClick={() => { if(confirm('Xóa?')) deleteDoc(doc(db, "initiatives", item.id)); }} className="p-2.5 bg-rose-50 text-rose-400 hover:text-rose-600 rounded-xl transition-all"><Trash2 size={18} /></button>
+            {filteredInitiatives.length > 0 ? (
+              filteredInitiatives.map((item) => (
+                <div key={item.id} className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 hover:shadow-2xl transition-all group animate-slide">
+                  <div className="flex justify-between items-start mb-6">
+                    <div className="flex flex-wrap gap-2">
+                      <span className="bg-slate-900 text-white px-3 py-1.5 rounded-xl text-[10px] font-black uppercase shadow-sm">{item.year}</span>
+                      {item.level?.map(lvl => (
+                        <span key={lvl} className={`${LEVEL_COLORS[lvl as InitiativeLevel] || 'bg-slate-400'} text-white px-3 py-1.5 rounded-xl text-[10px] font-black uppercase shadow-sm`}>{lvl}</span>
+                      ))}
+                      {item.unit && <span className="bg-indigo-50 text-indigo-700 border border-indigo-100 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase flex items-center gap-1.5 shadow-sm"><Building2 size={10} /> {item.unit}</span>}
                     </div>
-                  )}
+                    {user && (
+                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => handleEditInitiative(item)} className="p-2.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl transition-all"><Edit size={18} /></button>
+                        <button onClick={() => { if(confirm('Xóa?')) deleteDoc(doc(db, "initiatives", item.id)); }} className="p-2.5 bg-rose-50 text-rose-400 hover:text-rose-600 rounded-xl transition-all"><Trash2 size={18} /></button>
+                      </div>
+                    )}
+                  </div>
+                  <h3 className="text-2xl font-black text-slate-900 mb-4 leading-tight line-clamp-2 min-h-[4rem]">{item.title}</h3>
+                  <div className="flex items-center gap-2 mb-6 text-slate-500 font-bold text-sm">
+                    <Users size={16} className="text-blue-500" /> {Array.isArray(item.authors) ? item.authors.join(', ') : item.authors}
+                  </div>
+                  <button onClick={() => setViewingInitiative(item)} className="text-blue-600 font-black text-sm flex items-center gap-2 hover:gap-3 transition-all border-b-2 border-transparent hover:border-blue-600 pb-1 w-fit">
+                    Xem chi tiết <ArrowRight size={16} />
+                  </button>
                 </div>
-                <h3 className="text-2xl font-black text-slate-900 mb-4 leading-tight line-clamp-2 min-h-[4rem]">{item.title}</h3>
-                <div className="flex items-center gap-2 mb-6 text-slate-500 font-bold text-sm">
-                  <Users size={16} className="text-blue-500" /> {Array.isArray(item.authors) ? item.authors.join(', ') : item.authors}
+              ))
+            ) : (
+              <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-dashed border-slate-200">
+                <div className="bg-slate-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
+                  <Search size={32} />
                 </div>
-                <button onClick={() => setViewingInitiative(item)} className="text-blue-600 font-black text-sm flex items-center gap-2 hover:gap-3 transition-all border-b-2 border-transparent hover:border-blue-600 pb-1 w-fit">
-                  Xem chi tiết <ArrowRight size={16} />
-                </button>
+                <h3 className="text-xl font-black text-slate-900">Không tìm thấy sáng kiến nào</h3>
+                <p className="text-slate-400 font-medium">Thử điều chỉnh bộ lọc hoặc từ khóa tìm kiếm</p>
               </div>
-            ))}
+            )}
           </div>
         ) : activeTab === 'stats' ? (
           <div className="space-y-10 animate-slide">
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col items-center text-center">
+                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col items-center text-center cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => setActiveTab('list')}>
                   <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl mb-4"><Zap size={24} /></div>
                   <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest mb-1">Tổng sáng kiến</p>
                   <h4 className="text-4xl font-black text-slate-900">{dashboardStats.total}</h4>
                   <div className="mt-2 text-xs font-bold text-emerald-500 flex items-center gap-1"><TrendingUp size={12} /> {dashboardStats.growth}%</div>
                 </div>
-                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col items-center text-center">
+                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col items-center text-center cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => handleFilterByLevel('EVN')}>
                   <div className="p-4 bg-purple-50 text-purple-600 rounded-2xl mb-4"><Award size={24} /></div>
                   <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest mb-1">Cấp EVN</p>
                   <h4 className="text-4xl font-black text-slate-900">{dashboardStats.levelDist['EVN'] || 0}</h4>
                 </div>
-                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col items-center text-center">
+                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col items-center text-center cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => handleFilterByLevel('NPC')}>
                   <div className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl mb-4"><Building2 size={24} /></div>
                   <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest mb-1">Cấp NPC</p>
                   <h4 className="text-4xl font-black text-slate-900">{dashboardStats.levelDist['NPC'] || 0}</h4>
@@ -419,10 +486,10 @@ const App: React.FC = () => {
                    <h3 className="text-xl font-black text-slate-900 uppercase mb-8">Phân bổ Đơn vị</h3>
                    <div className="space-y-6">
                       {dashboardStats.topUnits.map(([unit, count], idx) => (
-                        <div key={unit} className="space-y-2 group/unit cursor-pointer" onClick={() => setDrillDownUnit(unit)}>
+                        <div key={unit} className="space-y-2 group/unit cursor-pointer" onClick={() => handleFilterByUnit(unit)}>
                           <div className="flex justify-between items-center text-sm font-bold">
                             <span className="text-slate-700 group-hover/unit:text-blue-600 transition-colors flex items-center gap-2">{unit} <ChevronRight size={14}/></span>
-                            <span className="text-blue-600">{count}</span>
+                            <span className="text-blue-600 font-black">{count} sáng kiến</span>
                           </div>
                           <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
                             <div className={`h-full bg-gradient-to-r ${idx === 0 ? 'from-blue-600 to-indigo-600' : 'from-slate-400 to-slate-500'} rounded-full transition-all duration-1000`} style={{ width: `${(count / (dashboardStats.topUnits[0][1] as number)) * 100}%` }}></div>
