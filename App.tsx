@@ -1,26 +1,9 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
+// Fixed Firebase imports to use correct modular syntax and consolidated imports
 import { initializeApp, getApp, getApps } from "firebase/app";
-import { 
-  getFirestore, 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
-  onSnapshot,
-  query,
-  orderBy,
-  writeBatch
-} from "firebase/firestore";
-import { 
-  getAuth, 
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  onAuthStateChanged, 
-  signOut,
-  User 
-} from "firebase/auth";
+import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, writeBatch } from "firebase/firestore";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { Initiative, ChatMessage, InitiativeLevel, BatchItem } from './types';
 import { 
   Search, BrainCircuit, Plus, Send, 
@@ -41,6 +24,7 @@ const firebaseConfig = {
   measurementId: "G-GS3R89R7ZY"
 };
 
+// Initialize Firebase with singleton pattern for modular SDK
 const firebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(firebaseApp);
 const auth = getAuth(firebaseApp);
@@ -230,6 +214,7 @@ const App: React.FC = () => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     setIsBatchProcessing(true);
+    // Initializing AI client inside handler as per guidelines
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     try {
       const results: BatchItem[] = [];
@@ -286,6 +271,7 @@ const App: React.FC = () => {
     setChatMessages(newMessages);
     setUserInput('');
     setIsTyping(true);
+    // Initializing AI client inside handler as per guidelines
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const context = initiatives.map(i => `- [${i.year}] ${i.title}`).join('\n').substring(0, 3000);
     try {
@@ -302,6 +288,7 @@ const App: React.FC = () => {
   const generateLeadershipInsight = async () => {
     if (isGeneratingInsight) return;
     setIsGeneratingInsight(true);
+    // Initializing AI client inside handler as per guidelines
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const context = JSON.stringify(dashboardStats);
     try {
@@ -765,6 +752,32 @@ const App: React.FC = () => {
              <div className="p-10 border-b border-slate-100 flex items-center justify-between"><h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter flex items-center gap-3"><Edit className={activeTheme.text}/> Hiệu chỉnh Sáng kiến</h3><button onClick={() => setIsEditModalOpen(false)} className="p-4 hover:bg-slate-100 rounded-2xl transition-all"><X size={28} /></button></div>
              <div className="p-10 overflow-y-auto flex-1 space-y-6 custom-scrollbar">
                 <div className="space-y-1"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Tên sáng kiến</label><input className={`w-full px-6 py-5 bg-slate-50 border border-slate-200 rounded-[1.5rem] font-bold focus:bg-white focus:border-orange-500 outline-none shadow-inner`} value={editingInitiative.title} onChange={(e) => setEditingInitiative({...editingInitiative, title: e.target.value})} /></div>
+                
+                {/* Restoration of Level Selection */}
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-2 flex items-center gap-1.5"><Award size={10}/> Cấp công nhận</label>
+                  <div className="flex flex-wrap gap-2 px-2">
+                    {(['HLH', 'NPSC', 'NPC', 'EVN'] as InitiativeLevel[]).map(lvl => {
+                      const isSelected = editingInitiative.level?.includes(lvl);
+                      return (
+                        <button 
+                          key={lvl} 
+                          onClick={() => {
+                            const current = editingInitiative.level || [];
+                            const updated = current.includes(lvl) 
+                              ? current.filter(l => l !== lvl) 
+                              : [...current, lvl];
+                            setEditingInitiative({...editingInitiative, level: updated});
+                          }}
+                          className={`px-4 py-2 rounded-xl text-[10px] font-black border-2 transition-all ${isSelected ? `${LEVEL_COLORS[lvl]} text-white border-transparent shadow-md scale-105` : 'bg-white text-slate-400 border-slate-100 hover:border-slate-300'}`}
+                        >
+                          {lvl}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-1"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Năm</label><input type="number" className="w-full px-6 py-5 bg-slate-50 border border-slate-200 rounded-[1.5rem] font-bold shadow-inner" value={editingInitiative.year} onChange={(e) => setEditingInitiative({...editingInitiative, year: parseInt(e.target.value)})} /></div>
                   <div className="space-y-1"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Lĩnh vực</label><input className="w-full px-6 py-5 bg-slate-50 border border-slate-200 rounded-[1.5rem] font-bold shadow-inner" value={editingInitiative.field} onChange={(e) => setEditingInitiative({...editingInitiative, field: e.target.value})} /></div>
