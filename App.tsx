@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { initializeApp, getApp, getApps } from "firebase/app";
@@ -178,7 +177,7 @@ const App: React.FC = () => {
       if (Array.isArray(val)) {
         val.forEach(v => { acc[v] = (acc[v] || 0) + 1; });
       } else if (val) {
-        acc[val] = (acc[val] || 0) + 1;
+        acc[val as string] = (acc[val as string] || 0) + 1;
       }
       return acc;
     }, {} as Record<string, number>);
@@ -231,7 +230,6 @@ const App: React.FC = () => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     setIsBatchProcessing(true);
-    // Fix: Create instance right before API call as per guidelines
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     try {
       const results: BatchItem[] = [];
@@ -242,7 +240,6 @@ const App: React.FC = () => {
           reader.onload = () => resolve((reader.result as string).split(',')[1]);
           reader.readAsDataURL(file);
         });
-        // Fix: Use strictly correct contents structure according to GenAI guidelines
         const response = await ai.models.generateContent({
           model: 'gemini-3-flash-preview',
           contents: { 
@@ -355,29 +352,29 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-[#f8fafc]">
-      <aside className="w-full lg:w-80 bg-slate-900 text-white lg:sticky lg:top-0 lg:h-screen flex flex-col p-8 z-30 shadow-2xl">
-        <div onClick={() => !user && setIsLoginModalOpen(true)} className="flex items-center gap-4 mb-10 group cursor-pointer transition-all">
-          <div className={`bg-gradient-to-br ${activeTheme.gradient} p-3 rounded-2xl shadow-lg group-hover:scale-110 transition-transform`}><BrainCircuit size={28} className="text-white" /></div>
-          <div><h1 className="font-extrabold text-2xl tracking-tighter">NPSC Hub</h1><p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Innovation Engine</p></div>
+      {/* Sidebar - Compacted paddings and margins */}
+      <aside className="w-full lg:w-72 bg-slate-900 text-white lg:sticky lg:top-0 lg:h-screen flex flex-col p-5 z-30 shadow-2xl">
+        <div onClick={() => !user && setIsLoginModalOpen(true)} className="flex items-center gap-3 mb-8 group cursor-pointer transition-all">
+          <div className={`bg-gradient-to-br ${activeTheme.gradient} p-2.5 rounded-xl shadow-lg group-hover:scale-110 transition-transform`}><BrainCircuit size={24} className="text-white" /></div>
+          <div><h1 className="font-extrabold text-xl tracking-tighter">NPSC Hub</h1><p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Sáng kiến - KHCN</p></div>
         </div>
 
         {user && (
-          <div className="mb-6 p-4 rounded-2xl bg-slate-800/50 border border-slate-700/50">
+          <div className="mb-4 p-3 rounded-xl bg-slate-800/50 border border-slate-700/50">
             <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-full ${activeTheme.primary} flex items-center justify-center font-black text-white`}>{user.email?.charAt(0).toUpperCase()}</div>
-              <div className="flex-1 overflow-hidden"><p className="text-xs font-black truncate text-slate-200">{user.email}</p><span className={`text-[9px] ${activeTheme.text} font-black uppercase`}>Administrator</span></div>
-              <button onClick={() => signOut(auth)} className="p-2 text-slate-500 hover:text-rose-400 transition-colors"><LogOut size={16}/></button>
+              <div className={`w-8 h-8 rounded-lg ${activeTheme.primary} flex items-center justify-center font-black text-white text-sm`}>{user.email?.charAt(0).toUpperCase()}</div>
+              <div className="flex-1 overflow-hidden"><p className="text-[10px] font-black truncate text-slate-200">{user.email}</p><span className={`text-[8px] ${activeTheme.text} font-black uppercase`}>Admin</span></div>
+              <button onClick={() => signOut(auth)} className="p-1.5 text-slate-500 hover:text-rose-400 transition-colors"><LogOut size={14}/></button>
             </div>
             
-            {/* Theme Selector for Admin */}
-            <div className="mt-4 pt-4 border-t border-slate-700/50">
-              <p className="text-[9px] font-black text-slate-500 uppercase mb-2 flex items-center gap-1.5"><Palette size={10}/> Tùy chỉnh màu sắc</p>
+            <div className="mt-3 pt-3 border-t border-slate-700/50">
+              <p className="text-[8px] font-black text-slate-500 uppercase mb-2 flex items-center gap-1.5"><Palette size={10}/> Chủ đề</p>
               <div className="flex gap-2">
                 {(Object.keys(THEMES) as ThemeKey[]).map(t => (
                   <button 
                     key={t} 
                     onClick={() => setTheme(t)}
-                    className={`w-5 h-5 rounded-full border-2 transition-all ${THEMES[t].primary} ${theme === t ? 'border-white scale-125' : 'border-transparent opacity-50 hover:opacity-100'}`}
+                    className={`w-4 h-4 rounded-full border-2 transition-all ${THEMES[t].primary} ${theme === t ? 'border-white scale-125' : 'border-transparent opacity-50 hover:opacity-100'}`}
                   />
                 ))}
               </div>
@@ -385,16 +382,16 @@ const App: React.FC = () => {
           </div>
         )}
 
-        <nav className="space-y-2 flex-1">
-          <button onClick={() => setActiveTab('list')} className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all font-bold ${activeTab === 'list' ? `${activeTheme.primary} text-white shadow-xl ${activeTheme.shadow}` : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><LayoutDashboard size={22} /> Danh mục</button>
-          <button onClick={() => setActiveTab('stats')} className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all font-bold ${activeTab === 'stats' ? `${activeTheme.primary} text-white shadow-xl ${activeTheme.shadow}` : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><BarChart3 size={22} /> Thống kê</button>
-          <button onClick={() => setActiveTab('chat')} className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all font-bold ${activeTab === 'chat' ? `${activeTheme.primary} text-white shadow-xl ${activeTheme.shadow}` : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Bot size={22} /> Trợ lý AI</button>
+        <nav className="space-y-1.5 flex-1">
+          <button onClick={() => setActiveTab('list')} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${activeTab === 'list' ? `${activeTheme.primary} text-white shadow-xl ${activeTheme.shadow}` : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><LayoutDashboard size={18} /> Danh mục</button>
+          <button onClick={() => setActiveTab('stats')} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${activeTab === 'stats' ? `${activeTheme.primary} text-white shadow-xl ${activeTheme.shadow}` : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><BarChart3 size={18} /> Thống kê</button>
+          <button onClick={() => setActiveTab('chat')} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${activeTab === 'chat' ? `${activeTheme.primary} text-white shadow-xl ${activeTheme.shadow}` : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Bot size={18} /> Trợ lý AI</button>
         </nav>
 
         {user && (
-          <div className="mt-auto pt-6 border-t border-slate-800 space-y-3">
-            <button onClick={() => { setEditingInitiative({ title: '', content: '', authors: [], unit: '', year: new Date().getFullYear(), level: ['HLH'], field: '' }); setIsEditModalOpen(true); }} className="w-full flex items-center justify-center gap-3 bg-white text-slate-900 px-6 py-4 rounded-2xl font-black hover:bg-slate-100 transition-all shadow-lg"><Plus size={20} /> Thêm mới</button>
-            <button onClick={() => setIsBatchModalOpen(true)} className={`w-full flex items-center justify-center gap-3 ${activeTheme.primary} text-white px-6 py-4 rounded-2xl font-black ${activeTheme.hover} transition-all shadow-lg`}><FileUp size={20} /> Nhập PDF (AI)</button>
+          <div className="mt-auto pt-4 border-t border-slate-800 space-y-2.5">
+            <button onClick={() => { setEditingInitiative({ title: '', content: '', authors: [], unit: '', year: new Date().getFullYear(), level: ['HLH'], field: '' }); setIsEditModalOpen(true); }} className="w-full flex items-center justify-center gap-2.5 bg-white text-slate-900 px-4 py-3.5 rounded-xl font-bold text-sm hover:bg-slate-100 transition-all shadow-lg"><Plus size={18} /> Thêm mới</button>
+            <button onClick={() => setIsBatchModalOpen(true)} className={`w-full flex items-center justify-center gap-2.5 ${activeTheme.primary} text-white px-4 py-3.5 rounded-xl font-bold text-sm ${activeTheme.hover} transition-all shadow-lg`}><FileUp size={18} /> Nhập PDF (AI)</button>
           </div>
         )}
       </aside>
@@ -493,19 +490,20 @@ const App: React.FC = () => {
                         <p className="text-[10px] font-bold text-slate-300">Click xem danh sách</p>
                       </div>
                       <div className="space-y-2 max-h-[600px] overflow-y-auto pr-3 custom-scrollbar">
-                         {Object.entries(
+                         {/* Fix arithmetic operation by casting entries explicitly to [string, number][] to ensure count is a number */}
+                         {(Object.entries(
                            statsView === 'level' ? dashboardStats.levelDist :
                            statsView === 'year' ? dashboardStats.yearDist :
                            statsView === 'unit' ? dashboardStats.unitDist :
                            dashboardStats.fieldDist
-                         ).sort((a, b) => {
-                           // Fix: Explicitly cast values to numbers to resolve arithmetic operation type error on line 495
+                         ) as [string, number][]).sort((a, b) => {
                            const isYearSort = statsView === 'year';
                            const valA = isYearSort ? Number(a[0]) : Number(a[1]);
                            const valB = isYearSort ? Number(b[0]) : Number(b[1]);
                            return valB - valA;
                          }).map(([key, count]) => {
-                           const percentage = Math.round((count / dashboardStats.total) * 100);
+                           // Use safe total with fallback to avoid division by zero
+                           const percentage = Math.round(((count as number) / (dashboardStats.total || 1)) * 100);
                            return (
                              <button 
                                key={key} 
@@ -814,10 +812,5 @@ const App: React.FC = () => {
     </div>
   );
 };
-
-// SVG Helper for missing icon in some versions of lucide
-const ListIcon: React.FC<any> = (props) => (
-  <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>
-);
 
 export default App;
