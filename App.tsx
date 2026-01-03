@@ -21,7 +21,8 @@ import {
   LayoutDashboard, X, Trash2, Eye, Save, Building2, 
   Loader2, FileUp, Database, TrendingUp, Users, Calendar, 
   ArrowRight, Bot, Upload, FileWarning, Filter, Tag, Lightbulb,
-  Edit, Paperclip, FileText, CheckCircle2
+  Edit, Paperclip, FileText, CheckCircle2, Award, BarChart3, 
+  Zap, PieChart, Activity, Sparkles, ChevronRight, Layers
 } from 'lucide-react';
 
 const firebaseConfig = {
@@ -50,6 +51,9 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'list' | 'stats' | 'chat'>('list');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLevels, setSelectedLevels] = useState<InitiativeLevel[]>([]);
+  const [selectedUnit, setSelectedUnit] = useState<string | null>(null);
+  const [aiInsight, setAiInsight] = useState<string>('');
+  const [isGeneratingInsight, setIsGeneratingInsight] = useState(false);
   
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     { role: 'model', text: 'Chào bạn! Tôi là trợ lý AI NPSC Hub. Tôi có thể giúp bạn tìm kiếm, phân tích sự trùng lặp hoặc chỉnh sửa thông tin sáng kiến. Bạn cần hỗ trợ gì không?' }
@@ -84,69 +88,58 @@ const App: React.FC = () => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
 
-  const toBase64 = (file: File): Promise<string> => 
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve((reader.result as string).split(',')[1]);
-      reader.onerror = error => reject(error);
-    });
+  const dashboardStats = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const lastYear = currentYear - 1;
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || file.type !== 'application/pdf') {
-      alert("Vui lòng tải lên file PDF.");
-      return;
-    }
-    setIsBatchProcessing(true);
-    try {
-      const base64Data = await toBase64(file);
-      await processPdfWithAI(base64Data);
-    } catch (error) {
-      alert("Lỗi đọc file.");
-    } finally {
-      setIsBatchProcessing(false);
-    }
-  };
+    const total = initiatives.length;
+    const currentYearCount = initiatives.filter(i => i.year === currentYear).length;
+    const lastYearCount = initiatives.filter(i => i.year === lastYear).length;
+    
+    const growth = lastYearCount === 0 ? 100 : Math.round(((currentYearCount - lastYearCount) / lastYearCount) * 100);
 
-  const processPdfWithAI = async (base64Data: string) => {
+    const levelDist = initiatives.reduce((acc, curr) => {
+      (curr.level || []).forEach(l => {
+        acc[l] = (acc[l] || 0) + 1;
+      });
+      return acc;
+    }, {} as Record<string, number>);
+
+    const unitDist = initiatives.reduce((acc, curr) => {
+      if (curr.unit) {
+        acc[curr.unit] = (acc[curr.unit] || 0) + 1;
+      }
+      return acc;
+    }, {} as Record<string, number>);
+    const topUnits = Object.entries(unitDist)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5);
+
+    const yearDist = initiatives.reduce((acc, curr) => {
+      acc[curr.year] = (acc[curr.year] || 0) + 1;
+      return acc;
+    }, {} as Record<number, number>);
+
+    return { total, currentYearCount, growth, levelDist, topUnits, yearDist };
+  }, [initiatives]);
+
+  const generateLeadershipInsight = async () => {
+    if (isGeneratingInsight || initiatives.length === 0) return;
+    setIsGeneratingInsight(true);
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const prompt = `Phân tích tệp PDF này và trích xuất danh sách các sáng kiến/cải tiến.
-    Yêu cầu các trường:
-    1. title: Tên sáng kiến.
-    2. content: Mô tả chi tiết.
-    3. authors: Mảng tên tác giả.
-    4. unit: Đơn vị.
-    5. year: Năm (số).
-    6. level: Mảng các cấp độ phù hợp. Chỉ chọn từ: ['HLH', 'NPSC', 'NPC', 'EVN'].
-    Trả về JSON array.`;
-
+    const dataSummary = initiatives.map(i => `- ${i.title} (${i.level?.join(',')}): ${i.content.substring(0, 50)}`).join('\n');
+    
     try {
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: { parts: [{ text: prompt }, { inlineData: { mimeType: 'application/pdf', data: base64Data } }] },
-        config: { 
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                title: { type: Type.STRING },
-                content: { type: Type.STRING },
-                authors: { type: Type.ARRAY, items: { type: Type.STRING } },
-                unit: { type: Type.STRING },
-                year: { type: Type.NUMBER },
-                level: { type: Type.ARRAY, items: { type: Type.STRING } }
-              },
-              required: ['title', 'content', 'year', 'level']
-            }
-          }
-        }
+        contents: `Dưới đây là danh sách sáng kiến của công ty:\n${dataSummary}\n\nHãy phân tích xu hướng sáng kiến, chỉ ra các mảng đang được quan tâm nhiều và đưa ra lời khuyên về hướng thúc đẩy đổi mới sáng tạo tiếp theo. Trình bày ngắn gọn, chuyên nghiệp cho cấp quản lý.`,
+        config: { systemInstruction: "Bạn là chuyên gia phân tích dữ liệu KHCN cấp cao. Trình bày bằng tiếng Việt, súc tích, có các đầu mục rõ ràng." }
       });
-      setBatchResults(JSON.parse(response.text || '[]'));
-    } catch (error) {
-      alert("AI không thể xử lý PDF này.");
+      setAiInsight(response.text || 'Không thể tạo nhận xét vào lúc này.');
+    } catch (e) {
+      setAiInsight('Lỗi kết nối AI khi tạo nhận xét chiến lược.');
+    } finally {
+      setIsGeneratingInsight(false);
     }
   };
 
@@ -165,6 +158,16 @@ const App: React.FC = () => {
       level: ['HLH']
     });
     setIsEditModalOpen(true);
+  };
+
+  // Fix: Added toggleLevelInEdit to handle level selection in edit modal
+  const toggleLevelInEdit = (lvl: InitiativeLevel) => {
+    if (!editingInitiative) return;
+    const currentLevels = editingInitiative.level || [];
+    const newLevels = currentLevels.includes(lvl)
+      ? currentLevels.filter(l => l !== lvl)
+      : [...currentLevels, lvl];
+    setEditingInitiative({ ...editingInitiative, level: newLevels });
   };
 
   const saveInitiative = async () => {
@@ -186,41 +189,105 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSingleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const base64 = await toBase64(file);
-    setEditingInitiative(prev => ({
-      ...prev,
-      attachmentName: file.name,
-      attachmentData: base64
-    }));
-  };
-
-  const toggleLevelInEdit = (lvl: InitiativeLevel) => {
-    setEditingInitiative(prev => {
-      if (!prev) return null;
-      const current = prev.level || [];
-      const updated = current.includes(lvl) 
-        ? current.filter(l => l !== lvl) 
-        : [...current, lvl];
-      return { ...prev, level: updated };
-    });
-  };
-
-  const toggleLevelFilter = (lvl: InitiativeLevel) => {
-    setSelectedLevels(prev => prev.includes(lvl) ? prev.filter(l => l !== lvl) : [...prev, lvl]);
-  };
-
   const filteredInitiatives = useMemo(() => {
     return initiatives.filter(i => {
       const matchesSearch = i.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
                            (i.authors?.some(a => a.toLowerCase().includes(searchTerm.toLowerCase())));
       const matchesLevel = selectedLevels.length === 0 || 
                           (i.level && i.level.some(l => selectedLevels.includes(l as InitiativeLevel)));
-      return matchesSearch && matchesLevel;
+      const matchesUnit = !selectedUnit || i.unit === selectedUnit;
+      return matchesSearch && matchesLevel && matchesUnit;
     });
-  }, [searchTerm, selectedLevels, initiatives]);
+  }, [searchTerm, selectedLevels, selectedUnit, initiatives]);
+
+  // Fix: Added toggleLevelFilter to handle main list level filters
+  const toggleLevelFilter = (level: InitiativeLevel) => {
+    setSelectedLevels(prev => 
+      prev.includes(level) 
+        ? prev.filter(l => l !== level) 
+        : [...prev, level]
+    );
+  };
+
+  const handleFilterByLevel = (level: InitiativeLevel) => {
+    setSelectedLevels([level]);
+    setSelectedUnit(null);
+    setActiveTab('list');
+  };
+
+  const handleFilterByUnit = (unit: string) => {
+    setSelectedUnit(unit);
+    setSelectedLevels([]);
+    setActiveTab('list');
+  };
+
+  // Fix: Added handleFileUpload to process PDF batch imports using Gemini API
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsBatchProcessing(true);
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const result = reader.result as string;
+      const base64Data = result.split(',')[1];
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      
+      try {
+        const response = await ai.models.generateContent({
+          model: 'gemini-3-flash-preview',
+          contents: {
+            parts: [
+              { inlineData: { mimeType: 'application/pdf', data: base64Data } },
+              { text: "Hãy trích xuất danh sách các sáng kiến từ tệp PDF này. Trả về một mảng JSON các đối tượng. Mỗi đối tượng có các thuộc tính: title, content, authors (mảng string), unit, year (number), level (mảng các chuỗi thuộc ['HLH', 'NPSC', 'NPC', 'EVN'])." }
+            ]
+          },
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  title: { type: Type.STRING },
+                  content: { type: Type.STRING },
+                  authors: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  unit: { type: Type.STRING },
+                  year: { type: Type.NUMBER },
+                  level: { type: Type.ARRAY, items: { type: Type.STRING } },
+                },
+                required: ["title", "content", "authors", "unit", "year", "level"]
+              }
+            }
+          }
+        });
+
+        const extractedData = JSON.parse(response.text || '[]');
+        if (extractedData && Array.isArray(extractedData) && extractedData.length > 0) {
+          const batch = writeBatch(db);
+          extractedData.forEach((item: any) => {
+            const newDocRef = doc(collection(db, "initiatives"));
+            batch.set(newDocRef, item);
+          });
+          await batch.commit();
+          alert(`Đã nhập thành công ${extractedData.length} sáng kiến.`);
+        } else {
+          alert("Không tìm thấy hoặc không trích xuất được sáng kiến nào.");
+        }
+      } catch (error) {
+        console.error("AI Error:", error);
+        alert("Lỗi khi xử lý PDF bằng AI. Vui lòng thử lại.");
+      } finally {
+        setIsBatchProcessing(false);
+        setIsBatchModalOpen(false);
+      }
+    };
+    reader.onerror = () => {
+      alert("Lỗi khi đọc file.");
+      setIsBatchProcessing(false);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSendMessage = async () => {
     if (!userInput.trim() || isTyping) return;
@@ -248,12 +315,15 @@ const App: React.FC = () => {
     <div className="min-h-screen flex flex-col lg:flex-row bg-[#f8fafc]">
       <aside className="w-full lg:w-80 bg-slate-900 text-white lg:sticky lg:top-0 lg:h-screen flex flex-col p-8 z-30 shadow-2xl">
         <div className="flex items-center gap-4 mb-12">
-          <div className="bg-gradient-to-br from-blue-400 to-indigo-600 p-3 rounded-2xl">
+          <div className="bg-gradient-to-br from-blue-400 to-indigo-600 p-3 rounded-2xl shadow-lg shadow-blue-500/20">
             <BrainCircuit size={28} className="text-white" />
           </div>
           <div>
             <h1 className="font-extrabold text-2xl tracking-tighter">NPSC Hub</h1>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Management Suite</p>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Executive Mode</p>
+            </div>
           </div>
         </div>
         <nav className="space-y-2 flex-1">
@@ -261,7 +331,7 @@ const App: React.FC = () => {
             <LayoutDashboard size={22} /> Danh mục
           </button>
           <button onClick={() => setActiveTab('stats')} className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all font-bold ${activeTab === 'stats' ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-            <TrendingUp size={22} /> Thống kê
+            <BarChart3 size={22} /> Thống kê
           </button>
           <button onClick={() => setActiveTab('chat')} className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all font-bold ${activeTab === 'chat' ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
             <Bot size={22} /> Trợ lý AI
@@ -281,7 +351,7 @@ const App: React.FC = () => {
         <header className="flex flex-col gap-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <h2 className="text-4xl font-black text-slate-900 tracking-tight uppercase">
-              {activeTab === 'list' ? 'Kho sáng kiến' : activeTab === 'stats' ? 'Thống kê' : 'Hỏi đáp AI'}
+              {activeTab === 'list' ? 'Kho sáng kiến' : activeTab === 'stats' ? 'Thống kê sáng kiến' : 'Hỏi đáp AI'}
             </h2>
             {activeTab === 'list' && (
               <div className="relative w-full md:w-96">
@@ -315,8 +385,14 @@ const App: React.FC = () => {
                   {lvl}
                 </button>
               ))}
-              {selectedLevels.length > 0 && (
-                <button onClick={() => setSelectedLevels([])} className="ml-auto text-xs font-bold text-rose-500 hover:underline">Xóa lọc</button>
+              {selectedUnit && (
+                <div className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 animate-slide">
+                  <Building2 size={14} /> {selectedUnit}
+                  <button onClick={() => setSelectedUnit(null)} className="hover:text-rose-500 transition-colors"><X size={14}/></button>
+                </div>
+              )}
+              {(selectedLevels.length > 0 || selectedUnit) && (
+                <button onClick={() => { setSelectedLevels([]); setSelectedUnit(null); }} className="ml-auto text-xs font-bold text-rose-500 hover:underline">Xóa tất cả lọc</button>
               )}
             </div>
           )}
@@ -328,14 +404,20 @@ const App: React.FC = () => {
               <div key={item.id} className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 hover:shadow-2xl transition-all group animate-slide">
                 <div className="flex justify-between items-start mb-6">
                   <div className="flex flex-wrap gap-2">
-                    <span className="bg-slate-900 text-white px-3 py-1.5 rounded-xl text-[10px] font-black uppercase">{item.year}</span>
+                    <span className="bg-slate-900 text-white px-3 py-1.5 rounded-xl text-[10px] font-black uppercase shadow-sm">{item.year}</span>
                     {item.level?.map(lvl => (
-                      <span key={lvl} className={`${LEVEL_COLORS[lvl as InitiativeLevel] || 'bg-slate-400'} text-white px-3 py-1.5 rounded-xl text-[10px] font-black uppercase`}>
+                      <span key={lvl} className={`${LEVEL_COLORS[lvl as InitiativeLevel] || 'bg-slate-400'} text-white px-3 py-1.5 rounded-xl text-[10px] font-black uppercase shadow-sm`}>
                         {lvl}
                       </span>
                     ))}
+                    {item.unit && (
+                      <span className="bg-indigo-50 text-indigo-700 border border-indigo-100 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase flex items-center gap-1.5 shadow-sm">
+                        <Building2 size={10} className="shrink-0" />
+                        <span className="truncate max-w-[120px]">{item.unit}</span>
+                      </span>
+                    )}
                     {item.attachmentName && (
-                      <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase flex items-center gap-1">
+                      <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase flex items-center gap-1 shadow-sm">
                         <Paperclip size={10} /> PDF
                       </span>
                     )}
@@ -345,27 +427,154 @@ const App: React.FC = () => {
                     <button onClick={() => { if(confirm('Xóa?')) deleteDoc(doc(db, "initiatives", item.id)); }} className="p-2.5 bg-rose-50 text-rose-400 hover:text-rose-600 rounded-xl transition-all"><Trash2 size={18} /></button>
                   </div>
                 </div>
-                <h3 className="text-2xl font-black text-slate-900 mb-4 leading-tight line-clamp-2">{item.title}</h3>
+                <h3 className="text-2xl font-black text-slate-900 mb-4 leading-tight line-clamp-2 min-h-[4rem]">{item.title}</h3>
                 <div className="flex items-center gap-2 mb-6 text-slate-500 font-bold text-sm">
-                  <Users size={16} /> {Array.isArray(item.authors) ? item.authors.join(', ') : item.authors}
+                  <Users size={16} className="text-blue-500" /> {Array.isArray(item.authors) ? item.authors.join(', ') : item.authors}
                 </div>
-                <button onClick={() => setViewingInitiative(item)} className="text-blue-600 font-black text-sm flex items-center gap-2 hover:gap-3 transition-all">
+                <button onClick={() => setViewingInitiative(item)} className="text-blue-600 font-black text-sm flex items-center gap-2 hover:gap-3 transition-all border-b-2 border-transparent hover:border-blue-600 pb-1 w-fit">
                   Xem chi tiết <ArrowRight size={16} />
                 </button>
               </div>
             ))}
-            {filteredInitiatives.length === 0 && !loading && (
-              <div className="col-span-full flex flex-col items-center justify-center py-20 opacity-30">
-                <FileWarning size={64} />
-                <p className="font-black mt-4 text-xl">KHÔNG TÌM THẤY SÁNG KIẾN</p>
-              </div>
-            )}
           </div>
         ) : activeTab === 'stats' ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-slide">
-            <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm text-center">
-              <p className="text-slate-400 font-bold uppercase text-xs mb-2">Tổng sáng kiến</p>
-              <h4 className="text-5xl font-black text-slate-900">{initiatives.length}</h4>
+          <div className="space-y-8 animate-slide">
+            {/* KPI Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div 
+                onClick={() => { setSelectedLevels([]); setSelectedUnit(null); setActiveTab('list'); }}
+                className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col items-center text-center cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all group"
+              >
+                <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors"><Zap size={24} /></div>
+                <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest mb-1">Tổng sáng kiến</p>
+                <h4 className="text-4xl font-black text-slate-900">{dashboardStats.total}</h4>
+                <div className="mt-2 text-xs font-bold text-emerald-500 flex items-center gap-1">
+                  <TrendingUp size={12} /> {dashboardStats.growth}% so với năm trước
+                </div>
+              </div>
+              <div 
+                onClick={() => handleFilterByLevel('EVN')}
+                className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col items-center text-center cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all group"
+              >
+                <div className="p-4 bg-purple-50 text-purple-600 rounded-2xl mb-4 group-hover:bg-purple-800 group-hover:text-white transition-colors"><Award size={24} /></div>
+                <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest mb-1">Cấp Tập đoàn (EVN)</p>
+                <h4 className="text-4xl font-black text-slate-900">{dashboardStats.levelDist['EVN'] || 0}</h4>
+                <p className="text-xs text-slate-400 mt-2 font-medium">Bấm để lọc xem danh sách</p>
+              </div>
+              <div 
+                onClick={() => handleFilterByLevel('NPC')}
+                className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col items-center text-center cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all group"
+              >
+                <div className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl mb-4 group-hover:bg-indigo-700 group-hover:text-white transition-colors"><Building2 size={24} /></div>
+                <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest mb-1">Cấp Tổng công ty</p>
+                <h4 className="text-4xl font-black text-slate-900">{dashboardStats.levelDist['NPC'] || 0}</h4>
+                <p className="text-xs text-slate-400 mt-2 font-medium">Bấm để lọc xem danh sách</p>
+              </div>
+              <div 
+                className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col items-center text-center"
+              >
+                <div className="p-4 bg-amber-50 text-amber-600 rounded-2xl mb-4"><Activity size={24} /></div>
+                <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest mb-1">Sáng kiến {new Date().getFullYear()}</p>
+                <h4 className="text-4xl font-black text-slate-900">{dashboardStats.currentYearCount}</h4>
+                <p className="text-xs text-slate-400 mt-2 font-medium">Sáng kiến mới nhất</p>
+              </div>
+            </div>
+
+            {/* Main Insights Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Unit Performance */}
+              <div className="lg:col-span-2 bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
+                <div className="flex items-center justify-between mb-8">
+                  <h3 className="text-xl font-black text-slate-900 uppercase">Đơn vị dẫn đầu</h3>
+                  <div className="flex items-center gap-2 text-[10px] text-slate-400 font-bold uppercase">Bấm vào đơn vị để lọc</div>
+                </div>
+                <div className="space-y-6">
+                  {dashboardStats.topUnits.map(([unit, count], idx) => (
+                    <div 
+                      key={unit} 
+                      className="space-y-2 cursor-pointer group/unit"
+                      onClick={() => handleFilterByUnit(unit)}
+                    >
+                      <div className="flex justify-between items-center text-sm font-bold">
+                        <span className="text-slate-700 group-hover/unit:text-blue-600 transition-colors">{unit}</span>
+                        <span className="text-blue-600">{count} sáng kiến</span>
+                      </div>
+                      <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full bg-gradient-to-r ${idx === 0 ? 'from-blue-600 to-indigo-600' : 'from-slate-400 to-slate-500'} rounded-full group-hover/unit:from-blue-500 group-hover/unit:to-blue-600 transition-all`}
+                          style={{ width: `${(count / (dashboardStats.topUnits[0][1] as number)) * 100}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  ))}
+                  {dashboardStats.topUnits.length === 0 && <p className="text-center py-10 text-slate-400 italic">Chưa có dữ liệu đơn vị</p>}
+                </div>
+              </div>
+
+              {/* AI Strategic Insight */}
+              <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-10 rounded-[3rem] shadow-2xl text-white relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-125 transition-transform">
+                  <Sparkles size={120} />
+                </div>
+                <div className="relative z-10 flex flex-col h-full">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="bg-blue-600 p-2 rounded-xl"><Bot size={20} /></div>
+                    <h3 className="text-lg font-black uppercase tracking-tight">AI Insights</h3>
+                  </div>
+                  
+                  {aiInsight ? (
+                    <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
+                       <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap italic">
+                         {aiInsight}
+                       </p>
+                    </div>
+                  ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
+                      <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center animate-pulse">
+                        <Activity size={32} className="text-blue-400" />
+                      </div>
+                      <p className="text-slate-400 text-sm font-bold">AI sẽ phân tích xu hướng sáng kiến của bạn</p>
+                    </div>
+                  )}
+
+                  <button 
+                    onClick={generateLeadershipInsight}
+                    disabled={isGeneratingInsight}
+                    className="mt-8 w-full py-4 bg-blue-600 hover:bg-blue-500 rounded-2xl font-black text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30"
+                  >
+                    {isGeneratingInsight ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
+                    {aiInsight ? 'Tạo lại phân tích' : 'Phân tích chiến lược'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Historical Trend */}
+            <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
+              <div className="flex items-center justify-between mb-10">
+                <h3 className="text-xl font-black text-slate-900 uppercase">Tăng trưởng qua các năm</h3>
+                <div className="flex gap-2">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400"><div className="w-2 h-2 rounded-full bg-blue-600"></div> Số lượng sáng kiến</div>
+                </div>
+              </div>
+              <div className="h-64 flex items-end gap-6 overflow-x-auto pb-4 custom-scrollbar">
+                {Object.entries(dashboardStats.yearDist).sort().map(([year, count]) => (
+                  <div key={year} className="flex-1 min-w-[60px] flex flex-col items-center gap-4 group">
+                    <div className="relative w-full flex justify-center">
+                      <div 
+                        className="w-12 bg-slate-100 rounded-2xl group-hover:bg-blue-600 transition-all duration-500 relative"
+                        style={{ height: `${(count / Math.max(...Object.values(dashboardStats.yearDist), 1)) * 15}rem` }}
+                      >
+                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all text-blue-600 font-black text-sm">
+                          {count}
+                        </div>
+                      </div>
+                    </div>
+                    <span className="text-xs font-black text-slate-400 uppercase tracking-tighter">{year}</span>
+                  </div>
+                ))}
+                {Object.keys(dashboardStats.yearDist).length === 0 && <p className="w-full text-center text-slate-400 py-10">Chưa có dữ liệu theo năm</p>}
+              </div>
             </div>
           </div>
         ) : (
@@ -374,7 +583,7 @@ const App: React.FC = () => {
                 <div className="bg-blue-600 p-3 rounded-2xl"><Bot size={24} className="text-white" /></div>
                 <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Trợ lý AI NPSC Hub</h3>
              </div>
-             <div className="flex-1 overflow-y-auto p-8 space-y-6">
+             <div className="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar">
                 {chatMessages.map((msg, idx) => (
                   <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     <div className={`max-w-[80%] p-6 rounded-[2rem] font-medium ${msg.role === 'user' ? 'bg-blue-600 text-white rounded-tr-none shadow-lg' : 'bg-slate-100 text-slate-800 rounded-tl-none border border-slate-200'}`}>
@@ -382,7 +591,7 @@ const App: React.FC = () => {
                     </div>
                   </div>
                 ))}
-                {isTyping && <div className="text-blue-500 animate-pulse font-bold px-6">AI đang xử lý...</div>}
+                {isTyping && <div className="text-blue-500 animate-pulse font-bold px-6 flex items-center gap-2"><Loader2 className="animate-spin" size={16}/> AI đang xử lý...</div>}
                 <div ref={chatEndRef} />
              </div>
              <div className="p-8 border-t border-slate-100">
@@ -393,16 +602,16 @@ const App: React.FC = () => {
                     onChange={(e) => setUserInput(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                     placeholder="Hỏi về sáng kiến, sự trùng lặp hoặc tóm tắt..."
-                    className="w-full pl-8 pr-16 py-5 bg-white border border-slate-200 rounded-3xl outline-none focus:border-blue-500 font-bold"
+                    className="w-full pl-8 pr-16 py-5 bg-white border border-slate-200 rounded-3xl outline-none focus:border-blue-500 font-bold shadow-sm"
                    />
-                   <button onClick={handleSendMessage} className="absolute right-3 top-1/2 -translate-y-1/2 bg-blue-600 p-3 rounded-2xl text-white shadow-lg"><Send size={20} /></button>
+                   <button onClick={handleSendMessage} className="absolute right-3 top-1/2 -translate-y-1/2 bg-blue-600 p-3 rounded-2xl text-white shadow-lg hover:bg-blue-700 transition-colors"><Send size={20} /></button>
                 </div>
              </div>
           </div>
         )}
       </main>
 
-      {/* EDIT/ADD MODAL */}
+      {/* MODALS REMAINDERS (EDIT, BATCH, VIEW) */}
       {isEditModalOpen && editingInitiative && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md">
           <div className="bg-white rounded-[3rem] w-full max-w-2xl max-h-[95vh] shadow-2xl flex flex-col overflow-hidden animate-slide">
@@ -410,201 +619,89 @@ const App: React.FC = () => {
                 <h3 className="text-2xl font-black text-slate-900 uppercase">{editingInitiative.id ? 'Chỉnh sửa sáng kiến' : 'Thêm mới sáng kiến'}</h3>
                 <button onClick={() => setIsEditModalOpen(false)} className="p-3 hover:bg-slate-100 rounded-xl"><X size={24} /></button>
              </div>
-             <div className="p-8 overflow-y-auto flex-1 space-y-6">
+             <div className="p-8 overflow-y-auto flex-1 space-y-6 custom-scrollbar">
                 <div className="space-y-2">
                    <label className="text-xs font-black uppercase text-slate-400">Tên sáng kiến</label>
-                   <input 
-                    className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:border-blue-500 outline-none"
-                    value={editingInitiative.title}
-                    onChange={(e) => setEditingInitiative({...editingInitiative, title: e.target.value})}
-                   />
+                   <input className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:border-blue-500 outline-none" value={editingInitiative.title} onChange={(e) => setEditingInitiative({...editingInitiative, title: e.target.value})} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-xs font-black uppercase text-slate-400">Năm</label>
-                    <input 
-                      type="number"
-                      className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold"
-                      value={editingInitiative.year}
-                      onChange={(e) => setEditingInitiative({...editingInitiative, year: parseInt(e.target.value)})}
-                    />
+                    <input type="number" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold" value={editingInitiative.year} onChange={(e) => setEditingInitiative({...editingInitiative, year: parseInt(e.target.value)})} />
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-black uppercase text-slate-400">Đơn vị</label>
-                    <input 
-                      className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold"
-                      value={editingInitiative.unit}
-                      onChange={(e) => setEditingInitiative({...editingInitiative, unit: e.target.value})}
-                    />
+                    <input className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold" value={editingInitiative.unit} onChange={(e) => setEditingInitiative({...editingInitiative, unit: e.target.value})} />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-black uppercase text-slate-400">Tác giả (Cách nhau bằng dấu phẩy)</label>
-                  <input 
-                    className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold"
-                    placeholder="VD: Nguyễn Văn A, Trần Thị B"
-                    value={Array.isArray(editingInitiative.authors) ? editingInitiative.authors.join(', ') : ''}
-                    onChange={(e) => setEditingInitiative({...editingInitiative, authors: e.target.value.split(',').map(s => s.trim())})}
-                  />
+                  <label className="text-xs font-black uppercase text-slate-400">Tác giả</label>
+                  <input className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold" value={Array.isArray(editingInitiative.authors) ? editingInitiative.authors.join(', ') : ''} onChange={(e) => setEditingInitiative({...editingInitiative, authors: e.target.value.split(',').map(s => s.trim())})} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-black uppercase text-slate-400">Gán thẻ cấp độ</label>
+                  <label className="text-xs font-black uppercase text-slate-400">Cấp độ</label>
                   <div className="flex flex-wrap gap-2">
                     {(['HLH', 'NPSC', 'NPC', 'EVN'] as InitiativeLevel[]).map(lvl => (
-                      <button
-                        key={lvl}
-                        onClick={() => toggleLevelInEdit(lvl)}
-                        className={`px-4 py-2 rounded-xl text-xs font-black border-2 transition-all ${
-                          editingInitiative.level?.includes(lvl)
-                            ? `${LEVEL_COLORS[lvl]} text-white border-transparent`
-                            : 'bg-white text-slate-400 border-slate-100 hover:border-slate-300'
-                        }`}
-                      >
-                        {lvl}
-                      </button>
+                      <button key={lvl} onClick={() => toggleLevelInEdit(lvl)} className={`px-4 py-2 rounded-xl text-xs font-black border-2 transition-all ${editingInitiative.level?.includes(lvl) ? `${LEVEL_COLORS[lvl]} text-white border-transparent` : 'bg-white text-slate-400 border-slate-100'}`}>{lvl}</button>
                     ))}
                   </div>
                 </div>
                 <div className="space-y-2">
-                   <label className="text-xs font-black uppercase text-slate-400">Nội dung sáng kiến</label>
-                   <textarea 
-                    rows={5}
-                    className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:border-blue-500 outline-none resize-none"
-                    value={editingInitiative.content}
-                    onChange={(e) => setEditingInitiative({...editingInitiative, content: e.target.value})}
-                   />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-black uppercase text-slate-400">Tài liệu đính kèm (PDF)</label>
-                  <div className="flex items-center gap-4 p-4 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50">
-                    <input type="file" id="single-pdf" hidden accept="application/pdf" onChange={handleSingleFileUpload} />
-                    <label htmlFor="single-pdf" className="cursor-pointer p-3 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 transition-all">
-                      <Paperclip size={20} className="text-slate-400" />
-                    </label>
-                    <div className="flex-1 overflow-hidden">
-                      <p className="text-sm font-bold truncate text-slate-600">
-                        {editingInitiative.attachmentName || "Chưa có tài liệu đính kèm"}
-                      </p>
-                    </div>
-                    {editingInitiative.attachmentName && (
-                      <button onClick={() => setEditingInitiative({...editingInitiative, attachmentName: undefined, attachmentData: undefined})} className="text-rose-500 hover:text-rose-700">
-                        <X size={18} />
-                      </button>
-                    )}
-                  </div>
+                   <label className="text-xs font-black uppercase text-slate-400">Nội dung</label>
+                   <textarea rows={5} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none resize-none" value={editingInitiative.content} onChange={(e) => setEditingInitiative({...editingInitiative, content: e.target.value})} />
                 </div>
              </div>
              <div className="p-8 border-t border-slate-100 bg-slate-50 flex gap-4">
-                <button onClick={() => setIsEditModalOpen(false)} className="flex-1 py-4 border border-slate-200 rounded-2xl font-black text-slate-400 hover:bg-white transition-all">Hủy</button>
-                <button onClick={saveInitiative} className="flex-[2] py-4 bg-blue-600 text-white rounded-2xl font-black hover:bg-blue-700 shadow-xl shadow-blue-600/20 flex items-center justify-center gap-2">
-                  <Save size={20} /> Lưu thay đổi
-                </button>
+                <button onClick={() => setIsEditModalOpen(false)} className="flex-1 py-4 border border-slate-200 rounded-2xl font-black text-slate-400">Hủy</button>
+                <button onClick={saveInitiative} className="flex-[2] py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg">Lưu</button>
              </div>
           </div>
         </div>
       )}
 
-      {/* BATCH MODAL */}
-      {isBatchModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md">
-          <div className="bg-white rounded-[3rem] w-full max-w-5xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden">
-            <div className="p-8 border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="bg-blue-600 p-3 rounded-2xl"><FileUp size={24} className="text-white" /></div>
-                <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">AI Extraction</h3>
-              </div>
-              <button onClick={() => setIsBatchModalOpen(false)} className="p-3 hover:bg-slate-100 rounded-xl"><X size={28} /></button>
-            </div>
-            <div className="p-10 grid grid-cols-1 lg:grid-cols-2 gap-10 overflow-y-auto">
-              <div className="space-y-6">
-                <div className="border-4 border-dashed border-slate-100 rounded-[2.5rem] p-12 text-center bg-slate-50 group hover:border-blue-200 transition-all">
-                  <Upload size={48} className="text-blue-600 mx-auto mb-6" />
-                  <h4 className="text-xl font-black text-slate-900 mb-2">Tải PDF danh sách</h4>
-                  <input type="file" id="batch-pdf" hidden accept="application/pdf" onChange={handleFileUpload} />
-                  <label htmlFor="batch-pdf" className="cursor-pointer bg-slate-900 text-white px-10 py-5 rounded-2xl font-black hover:bg-blue-600 transition-all inline-block mt-4">Chọn File</label>
-                </div>
-                {isBatchProcessing && <div className="p-4 bg-blue-50 rounded-xl text-blue-700 font-bold flex items-center gap-3"><Loader2 className="animate-spin" /> AI đang trích xuất...</div>}
-              </div>
-              <div className="flex flex-col min-h-[400px]">
-                <h4 className="font-black text-slate-900 uppercase mb-6">Kết quả ({batchResults.length})</h4>
-                <div className="flex-1 space-y-4 overflow-y-auto pr-2">
-                  {batchResults.map((item, idx) => (
-                    <div key={idx} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                       <h5 className="font-black text-slate-900 text-sm mb-3 leading-snug">{item.title}</h5>
-                       <div className="flex gap-2">
-                          {item.level?.map((l: string) => (
-                            <span key={l} className={`${LEVEL_COLORS[l as InitiativeLevel] || 'bg-slate-400'} text-white px-2 py-0.5 rounded text-[8px] font-black uppercase`}>{l}</span>
-                          ))}
-                          <span className="text-[8px] font-black bg-slate-100 text-slate-500 px-2 py-0.5 rounded uppercase ml-auto">{item.year}</span>
-                       </div>
-                    </div>
-                  ))}
-                </div>
-                {batchResults.length > 0 && (
-                  <button onClick={async () => {
-                    const batch = writeBatch(db);
-                    batchResults.forEach(item => batch.set(doc(collection(db, "initiatives")), item));
-                    await batch.commit();
-                    setIsBatchModalOpen(false);
-                    setBatchResults([]);
-                  }} className="mt-8 w-full py-5 bg-emerald-600 text-white rounded-2xl font-black shadow-xl">Nhập tất cả</button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* VIEW DETAILS */}
+      {/* VIEW MODAL */}
       {viewingInitiative && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-xl animate-in zoom-in">
            <div className="bg-white rounded-[3rem] w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
               <div className="p-10 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
                  <div className="flex items-center gap-5">
                     <div className="bg-blue-600 p-4 rounded-3xl"><Lightbulb size={32} className="text-white" /></div>
-                    <h3 className="text-3xl font-black text-slate-900">Chi tiết sáng kiến</h3>
+                    <h3 className="text-3xl font-black text-slate-900">Chi tiết</h3>
                  </div>
-                 <div className="flex gap-4">
-                    <button onClick={() => { setViewingInitiative(null); handleEditInitiative(viewingInitiative); }} className="p-4 bg-white border border-slate-200 rounded-2xl text-blue-600 font-bold hover:shadow-lg transition-all flex items-center gap-2"><Edit size={20}/> Sửa</button>
-                    <button onClick={() => setViewingInitiative(null)} className="p-4 hover:bg-white rounded-2xl text-slate-400 transition-all"><X size={32} /></button>
-                 </div>
+                 <button onClick={() => setViewingInitiative(null)} className="p-4 text-slate-400"><X size={32} /></button>
               </div>
-              <div className="p-10 overflow-y-auto flex-1 space-y-8">
-                 <div className="flex flex-wrap gap-2">
-                    <span className="bg-slate-900 text-white px-4 py-1 rounded-xl text-xs font-black uppercase">{viewingInitiative.year}</span>
-                    {viewingInitiative.level?.map(lvl => (
-                      <span key={lvl} className={`${LEVEL_COLORS[lvl as InitiativeLevel]} text-white px-4 py-1 rounded-xl text-xs font-black uppercase`}>{lvl}</span>
-                    ))}
-                 </div>
-                 <h1 className="text-4xl font-black text-slate-900 leading-tight">{viewingInitiative.title}</h1>
-                 <div className="flex items-center gap-3 text-slate-600 font-bold"><Users size={20} className="text-blue-500" /> {Array.isArray(viewingInitiative.authors) ? viewingInitiative.authors.join(', ') : viewingInitiative.authors}</div>
-                 
-                 {viewingInitiative.attachmentName && (
-                   <div className="flex items-center gap-3 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl">
-                      <FileText size={24} className="text-emerald-600" />
-                      <div>
-                        <p className="text-xs font-black uppercase text-emerald-400">Tài liệu đính kèm</p>
-                        <p className="text-sm font-black text-emerald-700">{viewingInitiative.attachmentName}</p>
-                      </div>
-                      <button 
-                        onClick={() => {
-                          const link = document.createElement('a');
-                          link.href = `data:application/pdf;base64,${viewingInitiative.attachmentData}`;
-                          link.download = viewingInitiative.attachmentName!;
-                          link.click();
-                        }}
-                        className="ml-auto bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-black hover:bg-emerald-700"
-                      >
-                        Tải xuống
-                      </button>
-                   </div>
-                 )}
-
-                 <div className="bg-slate-50 p-10 rounded-[2.5rem] border border-slate-100">
-                    <p className="text-xl text-slate-700 leading-relaxed font-medium whitespace-pre-wrap">{viewingInitiative.content}</p>
-                 </div>
+              <div className="p-10 overflow-y-auto flex-1 space-y-8 custom-scrollbar">
+                 <h1 className="text-4xl font-black text-slate-900">{viewingInitiative.title}</h1>
+                 <p className="text-xl text-slate-700 leading-relaxed whitespace-pre-wrap">{viewingInitiative.content}</p>
               </div>
            </div>
+        </div>
+      )}
+
+      {/* BATCH MODAL */}
+      {isBatchModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md">
+          <div className="bg-white rounded-[3rem] w-full max-w-5xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden animate-slide">
+             <div className="p-8 border-b border-slate-100 flex items-center justify-between">
+                <h3 className="text-2xl font-black uppercase">Nhập hàng loạt bằng AI</h3>
+                <button onClick={() => setIsBatchModalOpen(false)}><X size={28}/></button>
+             </div>
+             <div className="p-10 text-center">
+                {isBatchProcessing ? (
+                  <div className="flex flex-col items-center gap-4 py-10">
+                    <Loader2 className="animate-spin text-blue-600" size={48} />
+                    <p className="font-bold text-slate-900">AI đang đọc và trích xuất dữ liệu từ PDF...</p>
+                    <p className="text-slate-500 text-sm">Quá trình này có thể mất vài giây.</p>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-slate-500 font-bold mb-6 italic">Chức năng trích xuất dữ liệu từ PDF hỗ trợ nhập nhanh danh sách sáng kiến các năm.</p>
+                    <input type="file" id="batch-pdf" hidden accept="application/pdf" onChange={handleFileUpload} />
+                    <label htmlFor="batch-pdf" className="cursor-pointer bg-blue-600 text-white px-10 py-5 rounded-2xl font-black hover:bg-blue-700 transition-all inline-block">Chọn File PDF</label>
+                  </>
+                )}
+             </div>
+          </div>
         </div>
       )}
     </div>
