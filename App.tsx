@@ -1,6 +1,6 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
-// Fixed Firebase imports to use correct modular syntax and consolidated imports
 import { initializeApp, getApp, getApps } from "firebase/app";
 import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, writeBatch } from "firebase/firestore";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, type User } from "firebase/auth";
@@ -24,7 +24,6 @@ const firebaseConfig = {
   measurementId: "G-GS3R89R7ZY"
 };
 
-// Initialize Firebase with singleton pattern for modular SDK
 const firebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(firebaseApp);
 const auth = getAuth(firebaseApp);
@@ -44,7 +43,6 @@ const THEMES = {
 };
 
 type ThemeKey = keyof typeof THEMES;
-
 const ITEMS_PER_PAGE = 10;
 
 const AI_SYSTEM_INSTRUCTION = `Bạn là chuyên gia cố vấn chiến lược và quản lý sáng kiến tại NPSC Hub. 
@@ -67,16 +65,13 @@ const App: React.FC = () => {
   const [selectedYears, setSelectedYears] = useState<number[]>([]);
   const [aiInsight, setAiInsight] = useState<string>('');
   const [isGeneratingInsight, setIsGeneratingInsight] = useState(false);
+  const [globalError, setGlobalError] = useState<string | null>(null);
   
-  // Pagination States
   const [currentPageList, setCurrentPageList] = useState(1);
   const [currentPageStats, setCurrentPageStats] = useState(1);
-
-  // Stats Drill-down states
   const [statsView, setStatsView] = useState<'level' | 'year' | 'unit' | 'field'>('level');
   const [statsDetailValue, setStatsDetailValue] = useState<string | number | null>(null);
 
-  // Auth states
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -89,7 +84,6 @@ const App: React.FC = () => {
   const [userInput, setUserInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
 
-  // Modals
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [viewingInitiative, setViewingInitiative] = useState<Initiative | null>(null);
@@ -107,14 +101,22 @@ const App: React.FC = () => {
     });
 
     const q = query(collection(db, "initiatives"), orderBy("year", "desc"));
-    const unsubscribeData = onSnapshot(q, (querySnapshot) => {
-      const items: Initiative[] = [];
-      querySnapshot.forEach((doc) => {
-        items.push({ ...doc.data(), id: doc.id } as Initiative);
-      });
-      setInitiatives(items);
-      setLoading(false);
-    });
+    const unsubscribeData = onSnapshot(q, 
+      (querySnapshot) => {
+        const items: Initiative[] = [];
+        querySnapshot.forEach((doc) => {
+          items.push({ ...doc.data(), id: doc.id } as Initiative);
+        });
+        setInitiatives(items);
+        setLoading(false);
+        setGlobalError(null);
+      },
+      (error) => {
+        console.error("Firestore error:", error);
+        setGlobalError("Không thể tải dữ liệu từ máy chủ. Vui lòng kiểm tra kết nối mạng.");
+        setLoading(false);
+      }
+    );
 
     return () => {
       unsubscribeAuth();
@@ -126,15 +128,26 @@ const App: React.FC = () => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
 
-  // Reset page 1 on filter/search change
   useEffect(() => {
     setCurrentPageList(1);
   }, [searchTerm, selectedLevels, selectedYears]);
 
-  // Reset stats page on detail value change
   useEffect(() => {
     setCurrentPageStats(1);
   }, [statsDetailValue, statsView]);
+
+  // Unified AI Error Handler
+  const handleAiError = (error: any) => {
+    console.error("AI Error:", error);
+    const msg = error.message || "";
+    if (msg.includes("Requested entity was not found")) {
+      return "Lỗi cấu hình API. Vui lòng kiểm tra lại quyền truy cập mô hình.";
+    }
+    if (msg.includes("Safety") || msg.includes("safety")) {
+      return "Yêu cầu bị từ chối do chính sách an toàn của AI.";
+    }
+    return "Đã có lỗi xảy ra khi kết nối với trí tuệ nhân tạo. Vui lòng thử lại sau.";
+  };
 
   const handleAuthAction = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,7 +158,7 @@ const App: React.FC = () => {
       await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
       setIsLoginModalOpen(false);
     } catch (error: any) {
-      setAuthError('Xác thực thất bại.');
+      setAuthError('Email hoặc mật khẩu không chính xác.');
     } finally {
       setIsAuthProcessing(false);
     }
@@ -214,15 +227,15 @@ const App: React.FC = () => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     setIsBatchProcessing(true);
-    // Initializing AI client inside handler as per guidelines
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     try {
       const results: BatchItem[] = [];
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const base64 = await new Promise<string>((resolve) => {
+        const base64 = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => resolve((reader.result as string).split(',')[1]);
+          reader.onerror = reject;
           reader.readAsDataURL(file);
         });
         const response = await ai.models.generateContent({
@@ -261,8 +274,11 @@ const App: React.FC = () => {
         })));
       }
       setBatchResults(results);
-    } catch (error) { alert("Lỗi xử lý AI."); }
-    finally { setIsBatchProcessing(false); }
+    } catch (error) { 
+      alert(handleAiError(error));
+    } finally { 
+      setIsBatchProcessing(false); 
+    }
   };
 
   const handleSendMessage = async () => {
@@ -271,7 +287,6 @@ const App: React.FC = () => {
     setChatMessages(newMessages);
     setUserInput('');
     setIsTyping(true);
-    // Initializing AI client inside handler as per guidelines
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const context = initiatives.map(i => `- [${i.year}] ${i.title}`).join('\n').substring(0, 3000);
     try {
@@ -280,15 +295,17 @@ const App: React.FC = () => {
         contents: `Dữ liệu:\n${context}\n\nCâu hỏi: ${userInput}`,
         config: { systemInstruction: AI_SYSTEM_INSTRUCTION }
       });
-      setChatMessages([...newMessages, { role: 'model', text: response.text || "Không có phản hồi." }]);
-    } catch (error) { setChatMessages([...newMessages, { role: 'model', text: "Lỗi kết nối AI." }]); }
-    finally { setIsTyping(false); }
+      setChatMessages([...newMessages, { role: 'model', text: response.text || "AI không thể đưa ra phản hồi lúc này." }]);
+    } catch (error) { 
+      setChatMessages([...newMessages, { role: 'model', text: handleAiError(error) }]); 
+    } finally { 
+      setIsTyping(false); 
+    }
   };
 
   const generateLeadershipInsight = async () => {
     if (isGeneratingInsight) return;
     setIsGeneratingInsight(true);
-    // Initializing AI client inside handler as per guidelines
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const context = JSON.stringify(dashboardStats);
     try {
@@ -298,8 +315,11 @@ const App: React.FC = () => {
         config: { systemInstruction: AI_SYSTEM_INSTRUCTION }
       });
       setAiInsight(response.text || "");
-    } catch (error) { setAiInsight("Lỗi AI."); }
-    finally { setIsGeneratingInsight(false); }
+    } catch (error) { 
+      setAiInsight(handleAiError(error)); 
+    } finally { 
+      setIsGeneratingInsight(false); 
+    }
   };
 
   const PaginationControls = ({ currentPage, totalItems, onPageChange }: { currentPage: number, totalItems: number, onPageChange: (p: number) => void }) => {
@@ -339,7 +359,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-[#f8fafc]">
-      {/* Sidebar - Compacted paddings and margins */}
+      {/* Sidebar */}
       <aside className="w-full lg:w-72 bg-slate-900 text-white lg:sticky lg:top-0 lg:h-screen flex flex-col p-5 z-30 shadow-2xl">
         <div onClick={() => !user && setIsLoginModalOpen(true)} className="flex items-center gap-3 mb-8 group cursor-pointer transition-all">
           <div className={`bg-gradient-to-br ${activeTheme.gradient} p-2.5 rounded-xl shadow-lg group-hover:scale-110 transition-transform`}><BrainCircuit size={24} className="text-white" /></div>
@@ -384,11 +404,19 @@ const App: React.FC = () => {
       </aside>
 
       <main className="flex-1 p-6 lg:p-10 flex flex-col gap-8 overflow-y-auto">
+        {/* Global Error Message */}
+        {globalError && (
+          <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl flex items-center gap-4 text-rose-700 font-bold text-sm animate-slide">
+            <AlertCircle size={20} /> {globalError}
+            <button onClick={() => window.location.reload()} className="ml-auto underline text-xs">Thử lại</button>
+          </div>
+        )}
+
         {activeTab === 'list' ? (
           <>
             <header className="flex flex-col gap-6">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <h2 className="text-4xl font-black text-slate-900 uppercase">Kho sáng kiến</h2>
+                <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter">Kho sáng kiến</h2>
                 <div className="relative w-full md:w-96"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} /><input type="text" placeholder="Tìm kiếm..." className={`w-full pl-12 pr-6 py-4 bg-white border border-slate-200 rounded-2xl shadow-sm font-medium focus:ring-4 ${activeTheme.ring} outline-none`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
               </div>
               <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
@@ -410,15 +438,21 @@ const App: React.FC = () => {
                     {user && (
                       <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button onClick={() => { setEditingInitiative({...item}); setIsEditModalOpen(true); }} className={`p-2.5 ${activeTheme.accent} ${activeTheme.text} rounded-xl hover:scale-110 transition-all`}><Edit size={18} /></button>
-                        <button onClick={() => { if(confirm('Xác nhận xóa?')) deleteDoc(doc(db, "initiatives", item.id)); }} className="p-2.5 bg-rose-50 text-rose-400 rounded-xl hover:scale-110 transition-all"><Trash2 size={18} /></button>
+                        <button onClick={async () => { if(confirm('Xác nhận xóa?')) { try { await deleteDoc(doc(db, "initiatives", item.id)); } catch(e) { alert("Lỗi khi xóa tài liệu."); } } }} className="p-2.5 bg-rose-50 text-rose-400 rounded-xl hover:scale-110 transition-all"><Trash2 size={18} /></button>
                       </div>
                     )}
                   </div>
-                  <h3 className="text-2xl font-black text-slate-900 mb-4 leading-tight line-clamp-2 min-h-[4rem] group-hover:text-orange-600 transition-colors">{item.title}</h3>
+                  <h3 className="text-2xl font-black text-slate-900 mb-4 leading-tight line-clamp-2 min-h-[4rem] group-hover:text-orange-600 transition-colors tracking-tight">{item.title}</h3>
                   <div className="flex items-center gap-2 text-slate-500 font-bold text-sm mb-6"><Users size={16} className={activeTheme.text} /> {Array.isArray(item.authors) ? item.authors.join(', ') : item.authors}</div>
                   <button onClick={() => setViewingInitiative(item)} className={`${activeTheme.text} font-black text-sm flex items-center gap-2 hover:gap-3 transition-all border-b-2 border-transparent hover:border-current pb-1 w-fit uppercase tracking-wider`}>Xem chi tiết <ArrowRight size={16} /></button>
                 </div>
               ))}
+              {paginatedList.length === 0 && !loading && (
+                <div className="xl:col-span-2 py-20 text-center text-slate-400">
+                  <Lightbulb size={48} className="mx-auto mb-4 opacity-20" />
+                  <p className="font-black uppercase tracking-widest text-xs">Không tìm thấy sáng kiến nào khớp với bộ lọc</p>
+                </div>
+              )}
             </div>
             
             <PaginationControls 
@@ -430,7 +464,7 @@ const App: React.FC = () => {
         ) : activeTab === 'stats' ? (
           <div className="space-y-10 animate-slide">
              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <h2 className="text-4xl font-black text-slate-900 uppercase">Thống kê Tổng thể</h2>
+                <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter">Thống kê Tổng thể</h2>
                 <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest"><Activity size={14}/> Cập nhật theo thời gian thực</div>
              </div>
              
@@ -445,7 +479,7 @@ const App: React.FC = () => {
                   <div key={i} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm text-center group hover:shadow-lg transition-all">
                     <div className={`p-4 bg-${stat.color}-50 text-${stat.color}-600 rounded-2xl mb-4 mx-auto w-fit group-hover:scale-110 transition-transform`}><stat.icon size={24} /></div>
                     <p className="text-slate-400 font-bold uppercase text-[10px] mb-1">{stat.label}</p>
-                    <h4 className="text-4xl font-black text-slate-900">{stat.value}</h4>
+                    <h4 className="text-4xl font-black text-slate-900 tracking-tighter">{stat.value}</h4>
                   </div>
                 ))}
              </div>
@@ -477,7 +511,6 @@ const App: React.FC = () => {
                         <p className="text-[10px] font-bold text-slate-300">Click xem danh sách</p>
                       </div>
                       <div className="space-y-2 max-h-[600px] overflow-y-auto pr-3 custom-scrollbar">
-                         {/* Fix arithmetic operation by casting entries explicitly to [string, number][] to ensure count is a number */}
                          {(Object.entries(
                            statsView === 'level' ? dashboardStats.levelDist :
                            statsView === 'year' ? dashboardStats.yearDist :
@@ -489,7 +522,6 @@ const App: React.FC = () => {
                            const valB = isYearSort ? Number(b[0]) : Number(b[1]);
                            return valB - valA;
                          }).map(([key, count]) => {
-                           // Use safe total with fallback to avoid division by zero
                            const percentage = Math.round(((count as number) / (dashboardStats.total || 1)) * 100);
                            return (
                              <button 
@@ -520,7 +552,7 @@ const App: React.FC = () => {
                            <div className="flex items-center justify-between mb-8">
                               <div className="flex items-center gap-3">
                                  <div className={`${activeTheme.primary} p-3 rounded-2xl text-white shadow-lg`}><FileText size={20}/></div>
-                                 <h4 className="font-black text-slate-900 uppercase tracking-tight">Danh sách {statsDetailValue}</h4>
+                                 <h4 className="font-black text-slate-900 uppercase tracking-tighter">Danh sách {statsDetailValue}</h4>
                               </div>
                               <span className={`text-[10px] font-black ${activeTheme.accent} ${activeTheme.text} px-4 py-2 rounded-full uppercase border ${activeTheme.border}`}>{statsDrillDownList.length} sáng kiến</span>
                            </div>
@@ -536,7 +568,7 @@ const App: React.FC = () => {
                                          <span className={`text-[10px] font-black ${activeTheme.text} uppercase tracking-widest`}>Năm {item.year}</span>
                                          <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-full">{item.unit}</span>
                                       </div>
-                                      <p className="text-base font-bold text-slate-800 leading-tight group-hover:text-orange-600">{item.title}</p>
+                                      <p className="text-base font-bold text-slate-800 leading-tight group-hover:text-orange-600 tracking-tight">{item.title}</p>
                                    </div>
                                  ))}
                               </div>
@@ -566,20 +598,20 @@ const App: React.FC = () => {
                       <div className="flex items-center gap-5">
                          <div className={`${activeTheme.primary} p-4 rounded-3xl shadow-2xl shadow-orange-600/50 animate-bounce`}><Bot size={32} /></div>
                          <div>
-                            <h3 className="text-3xl font-black uppercase tracking-tight">Trí tuệ nhân tạo NPSC</h3>
+                            <h3 className="text-3xl font-black uppercase tracking-tighter">Trí tuệ nhân tạo NPSC</h3>
                             <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Cố vấn chiến lược & Phân tích chuyên sâu</p>
                          </div>
                       </div>
                       <button 
                         onClick={generateLeadershipInsight} 
                         disabled={isGeneratingInsight} 
-                        className={`px-10 py-5 bg-white text-slate-900 rounded-[2rem] font-black flex items-center gap-3 hover:bg-orange-50 transition-all shadow-2xl active:scale-95 disabled:opacity-50`}
+                        className={`px-10 py-5 bg-white text-slate-900 rounded-[2rem] font-black flex items-center gap-3 hover:bg-orange-50 transition-all shadow-2xl active:scale-95 disabled:opacity-50 tracking-widest uppercase text-xs`}
                       >
                          {isGeneratingInsight ? <Loader2 size={22} className="animate-spin" /> : <Activity size={22} />} 
                          TỔNG HỢP & PHÂN TÍCH
                       </button>
                    </div>
-                   <div className="bg-white/5 backdrop-blur-xl rounded-[3rem] border border-white/10 p-12 min-h-[350px] flex items-center justify-center shadow-inner">
+                   <div className="bg-white/5 backdrop-blur-xl rounded-[3rem] border border-white/10 p-12 min-h-[350px] flex items-center justify-center shadow-inner overflow-hidden">
                       {aiInsight ? (
                         <div className="text-xl text-slate-100 leading-[1.8] font-medium whitespace-pre-wrap w-full animate-slide tracking-wide">
                            {aiInsight}
@@ -599,7 +631,7 @@ const App: React.FC = () => {
              <div className="p-10 border-b border-slate-100 flex items-center gap-5 bg-slate-50/50">
                 <div className={`${activeTheme.primary} p-4 rounded-2xl text-white shadow-lg`}><Bot size={28} /></div>
                 <div>
-                   <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Trợ lý AI Thông minh</h3>
+                   <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Trợ lý AI Thông minh</h3>
                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Hỗ trợ tra cứu & Nhận diện trùng lặp</p>
                 </div>
              </div>
@@ -622,7 +654,7 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* MODALS - THEMED */}
+      {/* MODALS */}
       {isBatchModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-xl animate-in fade-in duration-300">
           <div className="bg-white rounded-[4rem] w-full max-w-6xl max-h-[92vh] shadow-2xl overflow-hidden flex flex-col animate-slide">
@@ -642,7 +674,7 @@ const App: React.FC = () => {
                   <div className="space-y-8">
                      <div className="flex items-center justify-between bg-emerald-50 p-8 rounded-[2.5rem] border border-emerald-100 shadow-sm animate-slide">
                         <div className="flex items-center gap-4 text-emerald-700 font-black text-xl"><CheckCircle2 size={40} /> Hệ thống đã nhận diện {batchResults.length} sáng kiến mới</div>
-                        <div className="text-[11px] font-black text-emerald-600 bg-white px-5 py-2 rounded-full uppercase tracking-widest border border-emerald-200 shadow-sm">Admin vui lòng kiểm duyệt dữ liệu</div>
+                        <div className="text-[11px] font-black text-emerald-600 bg-white px-5 py-2 rounded-full uppercase tracking-widest border border-emerald-200 shadow-sm">Vui lòng kiểm duyệt dữ liệu</div>
                      </div>
                      <div className="border border-slate-100 bg-white rounded-[3rem] overflow-hidden shadow-sm">
                         <table className="w-full text-left text-sm border-collapse">
@@ -682,8 +714,13 @@ const App: React.FC = () => {
                         await batch.commit();
                         setIsBatchModalOpen(false);
                         setBatchResults([]);
-                     } catch(e) { alert("Lỗi lưu."); } finally { setLoading(false); }
-                   }} className={`flex-[2] py-5 ${activeTheme.primary} text-white rounded-[2rem] font-black shadow-2xl ${activeTheme.shadow} ${activeTheme.hover} transition-all flex items-center justify-center gap-3 uppercase tracking-widest text-xs`}>Xác nhận lưu {batchResults.filter(r => r.selected).length} bản ghi số hóa <CheckCircle2 size={20} /></button>
+                        setGlobalError(null);
+                     } catch(e) { 
+                        alert("Lỗi khi lưu dữ liệu hàng loạt."); 
+                     } finally { 
+                        setLoading(false); 
+                     }
+                   }} className={`flex-[2] py-5 ${activeTheme.primary} text-white rounded-[2rem] font-black shadow-2xl ${activeTheme.shadow} ${activeTheme.hover} transition-all flex items-center justify-center gap-3 uppercase tracking-widest text-xs`}>Xác nhận lưu {batchResults.filter(r => r.selected).length} bản ghi <CheckCircle2 size={20} /></button>
                 </div>
              )}
           </div>
@@ -698,15 +735,15 @@ const App: React.FC = () => {
                  <div className={`mx-auto ${activeTheme.primary} w-20 h-20 rounded-[2rem] flex items-center justify-center text-white shadow-2xl ${activeTheme.shadow} mb-4 rotate-3`}><LogIn size={36} /></div>
                  <div>
                     <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Đăng nhập Admin</h3>
-                    <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-2">Truy cập hệ thống quản trị NPSC</p>
+                    <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-2">Hệ thống quản trị NPSC Hub</p>
                  </div>
                  <form onSubmit={handleAuthAction} className="space-y-5 text-left">
-                    <div className="relative"><Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={20} /><input type="email" placeholder="Email công vụ" required className={`w-full pl-14 pr-6 py-5 bg-slate-50 border border-slate-200 rounded-[1.5rem] font-bold focus:bg-white focus:border-orange-500 outline-none transition-all shadow-inner`} value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} /></div>
+                    <div className="relative"><Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={20} /><input type="email" placeholder="Email" required className={`w-full pl-14 pr-6 py-5 bg-slate-50 border border-slate-200 rounded-[1.5rem] font-bold focus:bg-white focus:border-orange-500 outline-none transition-all shadow-inner`} value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} /></div>
                     <div className="relative"><Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={20} /><input type="password" placeholder="Mật khẩu" required className={`w-full pl-14 pr-6 py-5 bg-slate-50 border border-slate-200 rounded-[1.5rem] font-bold focus:bg-white focus:border-orange-500 outline-none transition-all shadow-inner`} value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} /></div>
                     {authError && <p className="text-[11px] font-black text-rose-500 px-4 text-center">{authError}</p>}
-                    <button disabled={isAuthProcessing} className={`w-full py-5 ${activeTheme.primary} text-white rounded-[1.5rem] font-black shadow-2xl ${activeTheme.shadow} uppercase tracking-widest text-xs transition-all active:scale-95`}>{isAuthProcessing ? 'Đang xác thực...' : 'Đăng nhập ngay'}</button>
+                    <button disabled={isAuthProcessing} className={`w-full py-5 ${activeTheme.primary} text-white rounded-[1.5rem] font-black shadow-2xl ${activeTheme.shadow} uppercase tracking-widest text-xs transition-all active:scale-95 disabled:opacity-50`}>{isAuthProcessing ? 'Đang xác thực...' : 'Đăng nhập ngay'}</button>
                  </form>
-                 <button onClick={() => setIsLoginModalOpen(false)} className="text-xs font-bold text-slate-300 hover:text-orange-500 transition-colors uppercase tracking-widest">Quay lại trang khách</button>
+                 <button onClick={() => setIsLoginModalOpen(false)} className="text-xs font-bold text-slate-300 hover:text-orange-500 transition-colors uppercase tracking-widest">Đóng</button>
               </div>
            </div>
         </div>
@@ -720,8 +757,8 @@ const App: React.FC = () => {
                  <div className="flex items-center gap-7">
                     <div className={`${activeTheme.primary} p-6 rounded-[2.5rem] text-white shadow-2xl ${activeTheme.shadow} rotate-2`}><Lightbulb size={40} /></div>
                     <div>
-                      <p className={`text-[10px] font-black uppercase ${activeTheme.text} tracking-[0.3em]`}>Hồ sơ số hóa độc quyền</p>
-                      <h3 className="text-4xl font-black text-slate-900 tracking-tighter">Chi tiết hồ sơ</h3>
+                      <p className={`text-[10px] font-black uppercase ${activeTheme.text} tracking-[0.3em]`}>Chi tiết hồ sơ</p>
+                      <h3 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">Sáng kiến</h3>
                     </div>
                  </div>
                  <button onClick={() => setViewingInitiative(null)} className="p-5 bg-white rounded-3xl text-slate-300 hover:text-rose-500 hover:rotate-90 transition-all shadow-sm"><X size={36} /></button>
@@ -732,12 +769,12 @@ const App: React.FC = () => {
                     {viewingInitiative.level?.map(lvl => (<span key={lvl} className={`${LEVEL_COLORS[lvl as InitiativeLevel]} text-white px-5 py-2 rounded-2xl text-[11px] font-black uppercase shadow-sm`}>{lvl}</span>))}
                     {viewingInitiative.unit && <span className={`${activeTheme.accent} ${activeTheme.text} border ${activeTheme.border} px-5 py-2 rounded-2xl text-[11px] font-black uppercase flex items-center gap-2 shadow-sm`}><Building2 size={14}/> {viewingInitiative.unit}</span>}
                  </div>
-                 <h1 className="text-5xl font-black text-slate-900 leading-[1.1] tracking-tighter">{viewingInitiative.title}</h1>
+                 <h1 className="text-4xl font-black text-slate-900 leading-[1.2] tracking-tighter uppercase">{viewingInitiative.title}</h1>
                  <div className="flex items-center gap-3 text-slate-500 font-bold text-lg"><Users size={20} className={activeTheme.text}/> {viewingInitiative.authors?.join(', ')}</div>
                  <div className="bg-white p-12 rounded-[4rem] border border-slate-100 shadow-inner relative">
-                    <div className="absolute top-8 right-8 text-slate-100"><Bot size={80}/></div>
+                    <div className="absolute top-8 right-8 text-slate-100 opacity-20"><Bot size={80}/></div>
                     <div className="relative z-10">
-                       <p className="text-xl text-slate-700 leading-relaxed font-medium whitespace-pre-wrap">{viewingInitiative.content}</p>
+                       <p className="text-lg text-slate-700 leading-relaxed font-medium whitespace-pre-wrap">{viewingInitiative.content}</p>
                     </div>
                  </div>
               </div>
@@ -753,7 +790,6 @@ const App: React.FC = () => {
              <div className="p-10 overflow-y-auto flex-1 space-y-6 custom-scrollbar">
                 <div className="space-y-1"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Tên sáng kiến</label><input className={`w-full px-6 py-5 bg-slate-50 border border-slate-200 rounded-[1.5rem] font-bold focus:bg-white focus:border-orange-500 outline-none shadow-inner`} value={editingInitiative.title} onChange={(e) => setEditingInitiative({...editingInitiative, title: e.target.value})} /></div>
                 
-                {/* Restoration of Level Selection */}
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase text-slate-400 ml-2 flex items-center gap-1.5"><Award size={10}/> Cấp công nhận</label>
                   <div className="flex flex-wrap gap-2 px-2">
@@ -783,43 +819,27 @@ const App: React.FC = () => {
                   <div className="space-y-1"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Lĩnh vực</label><input className="w-full px-6 py-5 bg-slate-50 border border-slate-200 rounded-[1.5rem] font-bold shadow-inner" value={editingInitiative.field} onChange={(e) => setEditingInitiative({...editingInitiative, field: e.target.value})} /></div>
                 </div>
                 <div className="space-y-1"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Đơn vị</label><input className="w-full px-6 py-5 bg-slate-50 border border-slate-200 rounded-[1.5rem] font-bold shadow-inner" value={editingInitiative.unit} onChange={(e) => setEditingInitiative({...editingInitiative, unit: e.target.value})} /></div>
-                <div className="space-y-1"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Tác giả (Cách nhau bằng dấu phẩy)</label><input className={`w-full px-6 py-5 bg-slate-50 border border-slate-200 rounded-[1.5rem] font-bold outline-none focus:bg-white focus:border-orange-500 transition-all shadow-inner`} value={Array.isArray(editingInitiative.authors) ? editingInitiative.authors.join(', ') : ''} onChange={(e) => setEditingInitiative({...editingInitiative, authors: e.target.value.split(',').map(a => a.trim())})} /></div>
+                <div className="space-y-1"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Tác giả (Dấu phẩy ngăn cách)</label><input className={`w-full px-6 py-5 bg-slate-50 border border-slate-200 rounded-[1.5rem] font-bold outline-none focus:bg-white focus:border-orange-500 transition-all shadow-inner`} value={Array.isArray(editingInitiative.authors) ? editingInitiative.authors.join(', ') : ''} onChange={(e) => setEditingInitiative({...editingInitiative, authors: e.target.value.split(',').map(a => a.trim())})} /></div>
                 <div className="space-y-1"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Nội dung tóm tắt</label><textarea rows={6} className={`w-full px-6 py-5 bg-slate-50 border border-slate-200 rounded-[2rem] font-bold outline-none resize-none focus:bg-white focus:border-orange-500 transition-all shadow-inner`} value={editingInitiative.content} onChange={(e) => setEditingInitiative({...editingInitiative, content: e.target.value})} /></div>
              </div>
              <div className="p-10 border-t border-slate-100 bg-slate-50 flex gap-4"><button onClick={() => setIsEditModalOpen(false)} className="flex-1 py-5 border-2 border-slate-200 rounded-[2rem] font-black text-slate-400 hover:bg-white transition-all uppercase text-xs">Hủy</button><button onClick={async () => {
-               if(!editingInitiative?.title) return alert("Thiếu tên.");
+               if(!editingInitiative?.title) return alert("Vui lòng nhập tên sáng kiến.");
                setLoading(true);
                try {
                   if(editingInitiative.id) { await updateDoc(doc(db, "initiatives", editingInitiative.id), editingInitiative); }
                   else { await addDoc(collection(db, "initiatives"), editingInitiative); }
                   setIsEditModalOpen(false);
-               } catch(e) { alert("Lỗi lưu."); } finally { setLoading(false); }
+                  setGlobalError(null);
+               } catch(e) { alert("Lỗi khi lưu dữ liệu."); } finally { setLoading(false); }
              }} className={`flex-[2] py-5 ${activeTheme.primary} text-white rounded-[2rem] font-black shadow-2xl ${activeTheme.shadow} uppercase text-xs tracking-widest`}>Lưu hồ sơ ngay</button></div>
           </div>
-        </div>
-      )}
-
-      {/* EDIT BATCH ITEM MODAL */}
-      {editingBatchItem && (
-        <div className="fixed inset-0 z-[210] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in zoom-in duration-200">
-           <div className="bg-white rounded-[4rem] w-full max-w-2xl shadow-2xl flex flex-col overflow-hidden border-4 border-white">
-              <div className="p-10 border-b border-slate-100 flex items-center justify-between"><h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Cập nhật dữ liệu trích xuất</h3><button onClick={() => setEditingBatchItem(null)} className="p-3 hover:bg-slate-100 rounded-xl transition-all"><X size={24}/></button></div>
-              <div className="p-10 space-y-5">
-                 <div className="space-y-1"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Tên sáng kiến</label><textarea className="w-full px-6 py-5 bg-slate-50 border border-slate-200 rounded-[1.5rem] font-bold focus:border-orange-500 outline-none resize-none shadow-inner" rows={3} value={editingBatchItem.title} onChange={(e) => setEditingBatchItem({...editingBatchItem, title: e.target.value})} /></div>
-                 <div className="grid grid-cols-2 gap-5">
-                    <div className="space-y-1"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Đơn vị</label><input className="w-full px-6 py-5 bg-slate-50 border border-slate-200 rounded-[1.5rem] font-bold shadow-inner" value={editingBatchItem.unit} onChange={(e) => setEditingBatchItem({...editingBatchItem, unit: e.target.value})} /></div>
-                    <div className="space-y-1"><label className="text-[10px] font-black uppercase text-slate-400 ml-2">Năm</label><input type="number" className="w-full px-6 py-5 bg-slate-50 border border-slate-200 rounded-[1.5rem] font-bold shadow-inner" value={editingBatchItem.year} onChange={(e) => setEditingBatchItem({...editingBatchItem, year: parseInt(e.target.value)})} /></div>
-                 </div>
-              </div>
-              <div className="p-10 border-t border-slate-100 bg-slate-50"><button onClick={() => { setBatchResults(prev => prev.map(item => item.tempId === editingBatchItem.tempId ? editingBatchItem : item)); setEditingBatchItem(null); }} className={`w-full py-5 ${activeTheme.primary} text-white rounded-[2rem] font-black shadow-2xl ${activeTheme.shadow} uppercase text-xs tracking-widest`}>Lưu thay đổi tạm thời</button></div>
-           </div>
         </div>
       )}
 
       {loading && (
         <div className="fixed inset-0 z-[1000] bg-white flex flex-col items-center justify-center space-y-4">
            <div className={`w-16 h-16 border-8 border-slate-100 border-t-orange-600 rounded-full animate-spin shadow-xl`}></div>
-           <p className="text-xs font-black text-slate-400 uppercase tracking-[0.3em] animate-pulse">NPSC Hub đang tải dữ liệu...</p>
+           <p className="text-xs font-black text-slate-400 uppercase tracking-[0.3em] animate-pulse tracking-widest">Đang kết nối hệ thống...</p>
         </div>
       )}
     </div>
