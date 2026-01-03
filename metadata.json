@@ -1,0 +1,5 @@
+{
+  "name": "KHCN-NPSC",
+  "description": "Ứng dụng tổng hợp sáng kiến, đánh giá và nhận xét trùng lặp sử dụng trí tuệ nhân tạo Gemini 3 Pro.",
+  "requestFramePermissions": []
+}
