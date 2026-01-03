@@ -1,5 +1,5 @@
 
-export type InitiativeLevel = 'NPSC' | 'NPC' | 'EVN';
+export type InitiativeLevel = 'HLH' | 'NPSC' | 'NPC' | 'EVN';
 
 export interface Initiative {
   id: string;
@@ -14,6 +14,8 @@ export interface Initiative {
   field: string;
   reward: string;
   level: InitiativeLevel[];
+  attachmentName?: string;
+  attachmentData?: string; // Lưu base64 cho demo đơn giản
 }
 
 export interface ChatMessage {
