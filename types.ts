@@ -19,6 +19,21 @@ export interface Initiative {
   driveLink?: string; // Đường dẫn Google Drive hoặc tài liệu trực tuyến
 }
 
+/**
+ * Interface representing a item extracted from a PDF before being saved to the database.
+ */
+export interface BatchItem {
+  tempId: string;
+  selected: boolean;
+  title: string;
+  authors: string[];
+  unit: string;
+  year: number;
+  content: string;
+  field: string;
+  level: InitiativeLevel[];
+}
+
 export interface ChatMessage {
   role: 'user' | 'model';
   text: string;
