@@ -16,6 +16,7 @@ export interface Initiative {
   level: InitiativeLevel[];
   attachmentName?: string;
   attachmentData?: string; // Lưu base64 cho demo đơn giản
+  driveLink?: string; // Đường dẫn Google Drive hoặc tài liệu trực tuyến
 }
 
 export interface ChatMessage {

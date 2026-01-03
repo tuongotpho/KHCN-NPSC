@@ -29,7 +29,7 @@ import {
   Loader2, FileUp, TrendingUp, Users, 
   ArrowRight, Bot, Upload, Edit, Lightbulb,
   Award, BarChart3, Zap, Activity, Sparkles, ChevronRight, Target,
-  LogIn, LogOut, ShieldCheck, Mail, Lock, UserPlus, Filter
+  LogIn, LogOut, ShieldCheck, Mail, Lock, UserPlus, Filter, Paperclip, Link, Download, ExternalLink, FileText
 } from 'lucide-react';
 
 const firebaseConfig = {
@@ -176,12 +176,6 @@ const App: React.FC = () => {
     return { total, currentYearCount, growth, levelDist, topUnits, fieldDist };
   }, [initiatives]);
 
-  const unitDetailStats = useMemo(() => {
-    if (!drillDownUnit) return null;
-    const unitInits = initiatives.filter(i => i.unit === drillDownUnit);
-    return { count: unitInits.length };
-  }, [drillDownUnit, initiatives]);
-
   // Filtering Handlers
   const toggleLevelFilter = (level: InitiativeLevel) => {
     setSelectedLevels(prev => 
@@ -216,9 +210,35 @@ const App: React.FC = () => {
       unit: '',
       year: new Date().getFullYear(),
       level: ['HLH'],
-      field: ''
+      field: '',
+      driveLink: ''
     });
     setIsEditModalOpen(true);
+  };
+
+  const toggleLevelInEdit = (lvl: InitiativeLevel) => {
+    if (!editingInitiative) return;
+    const currentLevels = editingInitiative.level || [];
+    const newLevels = currentLevels.includes(lvl) 
+      ? currentLevels.filter(l => l !== lvl) 
+      : [...currentLevels, lvl];
+    setEditingInitiative({ ...editingInitiative, level: newLevels });
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64String = reader.result as string;
+      setEditingInitiative(prev => ({
+        ...prev,
+        attachmentName: file.name,
+        attachmentData: base64String
+      }));
+    };
+    reader.readAsDataURL(file);
   };
 
   const saveInitiative = async () => {
@@ -377,7 +397,6 @@ const App: React.FC = () => {
             )}
           </div>
 
-          {/* Filtering UI inside Category Header */}
           {activeTab === 'list' && (
             <div className="flex flex-wrap items-center gap-4 bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm animate-slide">
               <div className="flex items-center gap-2 text-slate-400 mr-2 font-black text-[10px] uppercase tracking-widest"><Filter size={14} /> Bộ lọc:</div>
@@ -437,8 +456,15 @@ const App: React.FC = () => {
                     )}
                   </div>
                   <h3 className="text-2xl font-black text-slate-900 mb-4 leading-tight line-clamp-2 min-h-[4rem]">{item.title}</h3>
-                  <div className="flex items-center gap-2 mb-6 text-slate-500 font-bold text-sm">
-                    <Users size={16} className="text-blue-500" /> {Array.isArray(item.authors) ? item.authors.join(', ') : item.authors}
+                  <div className="flex flex-wrap gap-4 items-center mb-6">
+                    <div className="flex items-center gap-2 text-slate-500 font-bold text-sm">
+                      <Users size={16} className="text-blue-500" /> {Array.isArray(item.authors) ? item.authors.join(', ') : item.authors}
+                    </div>
+                    {(item.attachmentData || item.driveLink) && (
+                      <div className="flex items-center gap-1.5 text-emerald-600 font-black text-[10px] uppercase bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100">
+                        <Paperclip size={12}/> Có tài liệu
+                      </div>
+                    )}
                   </div>
                   <button onClick={() => setViewingInitiative(item)} className="text-blue-600 font-black text-sm flex items-center gap-2 hover:gap-3 transition-all border-b-2 border-transparent hover:border-blue-600 pb-1 w-fit">
                     Xem chi tiết <ArrowRight size={16} />
@@ -451,7 +477,6 @@ const App: React.FC = () => {
                   <Search size={32} />
                 </div>
                 <h3 className="text-xl font-black text-slate-900">Không tìm thấy sáng kiến nào</h3>
-                <p className="text-slate-400 font-medium">Thử điều chỉnh bộ lọc hoặc từ khóa tìm kiếm</p>
               </div>
             )}
           </div>
@@ -485,14 +510,14 @@ const App: React.FC = () => {
                 <div className="lg:col-span-2 bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
                    <h3 className="text-xl font-black text-slate-900 uppercase mb-8">Phân bổ Đơn vị</h3>
                    <div className="space-y-6">
-                      {dashboardStats.topUnits.map(([unit, count], idx) => (
+                      {Object.entries(initiatives.reduce((acc, curr) => { if (curr.unit) acc[curr.unit] = (acc[curr.unit] || 0) + 1; return acc; }, {} as Record<string, number>)).sort((a,b) => b[1] - a[1]).slice(0, 8).map(([unit, count], idx, arr) => (
                         <div key={unit} className="space-y-2 group/unit cursor-pointer" onClick={() => handleFilterByUnit(unit)}>
                           <div className="flex justify-between items-center text-sm font-bold">
                             <span className="text-slate-700 group-hover/unit:text-blue-600 transition-colors flex items-center gap-2">{unit} <ChevronRight size={14}/></span>
                             <span className="text-blue-600 font-black">{count} sáng kiến</span>
                           </div>
                           <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
-                            <div className={`h-full bg-gradient-to-r ${idx === 0 ? 'from-blue-600 to-indigo-600' : 'from-slate-400 to-slate-500'} rounded-full transition-all duration-1000`} style={{ width: `${(count / (dashboardStats.topUnits[0][1] as number)) * 100}%` }}></div>
+                            <div className={`h-full bg-gradient-to-r ${idx === 0 ? 'from-blue-600 to-indigo-600' : 'from-slate-400 to-slate-500'} rounded-full transition-all duration-1000`} style={{ width: `${(count / arr[0][1]) * 100}%` }}></div>
                           </div>
                         </div>
                       ))}
@@ -514,7 +539,6 @@ const App: React.FC = () => {
                    </button>
                    {aiInsight && (
                      <div className="mt-6 p-6 bg-blue-50 border border-blue-100 rounded-3xl text-[13px] font-medium text-slate-700 leading-relaxed animate-slide">
-                       <p className="font-black text-blue-600 mb-2 uppercase text-[10px]">AI Strategic Insight:</p>
                        {aiInsight}
                      </div>
                    )}
@@ -546,7 +570,7 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* LOGIN MODAL (HIDDEN TRIGGER ON LOGO) */}
+      {/* LOGIN MODAL */}
       {isLoginModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xl animate-in fade-in duration-300">
           <div className="bg-white rounded-[3rem] w-full max-w-md shadow-2xl overflow-hidden animate-slide">
@@ -557,36 +581,20 @@ const App: React.FC = () => {
                 <h3 className="text-3xl font-black text-slate-900 tracking-tight uppercase">
                   {isRegisterMode ? 'Đăng ký tài khoản' : 'Đăng nhập Quản trị'}
                 </h3>
-                
                 <form onSubmit={handleAuthAction} className="space-y-4 text-left">
                    <div className="relative">
                       <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-                      <input 
-                        type="email" 
-                        placeholder="Email công vụ" 
-                        required
-                        className="w-full pl-12 pr-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-blue-500 font-bold"
-                        value={loginEmail}
-                        onChange={(e) => setLoginEmail(e.target.value)}
-                      />
+                      <input type="email" placeholder="Email công vụ" required className="w-full pl-12 pr-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-blue-500 font-bold" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} />
                    </div>
                    <div className="relative">
                       <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-                      <input 
-                        type="password" 
-                        placeholder="Mật khẩu" 
-                        required
-                        className="w-full pl-12 pr-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-blue-500 font-bold"
-                        value={loginPassword}
-                        onChange={(e) => setLoginPassword(e.target.value)}
-                      />
+                      <input type="password" placeholder="Mật khẩu" required className="w-full pl-12 pr-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-blue-500 font-bold" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} />
                    </div>
                    {authError && <p className="text-xs font-black text-rose-500 px-2 animate-pulse">{authError}</p>}
                    <button disabled={isAuthProcessing} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black shadow-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-2">
                      {isAuthProcessing ? <Loader2 size={20} className="animate-spin" /> : (isRegisterMode ? 'Tạo tài khoản' : 'Đăng nhập ngay')}
                    </button>
                 </form>
-
                 <div className="pt-4 flex flex-col gap-3">
                    <button onClick={() => { setIsRegisterMode(!isRegisterMode); setAuthError(''); }} className="text-sm font-black text-slate-400 hover:text-blue-600">
                      {isRegisterMode ? 'Đã có tài khoản? Đăng nhập' : 'Chưa có tài khoản? Đăng ký'}
@@ -622,8 +630,74 @@ const App: React.FC = () => {
                   </div>
                 </div>
                 <div className="space-y-1">
+                   <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Đơn vị</label>
+                   <input className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold" value={editingInitiative.unit} onChange={(e) => setEditingInitiative({...editingInitiative, unit: e.target.value})} />
+                </div>
+                <div className="space-y-1">
+                   <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Tác giả (cách nhau bởi dấu phẩy)</label>
+                   <input className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:border-blue-500 outline-none" value={Array.isArray(editingInitiative.authors) ? editingInitiative.authors.join(', ') : ''} onChange={(e) => setEditingInitiative({...editingInitiative, authors: e.target.value.split(',').map(a => a.trim())})} />
+                </div>
+                
+                {/* Multi-Level Recognition Selection */}
+                <div className="space-y-2">
+                   <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Cấp công nhận (Có thể chọn nhiều)</label>
+                   <div className="flex flex-wrap gap-2">
+                      {(['HLH', 'NPSC', 'NPC', 'EVN'] as InitiativeLevel[]).map(lvl => (
+                        <button 
+                          key={lvl} 
+                          type="button"
+                          onClick={() => toggleLevelInEdit(lvl)} 
+                          className={`px-6 py-2.5 rounded-xl text-xs font-black border-2 transition-all ${
+                            editingInitiative.level?.includes(lvl) 
+                            ? `${LEVEL_COLORS[lvl]} text-white border-transparent shadow-lg scale-105` 
+                            : 'bg-white text-slate-400 border-slate-100 hover:border-slate-300'
+                          }`}
+                        >
+                          {lvl}
+                        </button>
+                      ))}
+                   </div>
+                </div>
+
+                <div className="space-y-1">
                    <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Mô tả chi tiết</label>
-                   <textarea rows={8} className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none resize-none focus:border-blue-500" value={editingInitiative.content} onChange={(e) => setEditingInitiative({...editingInitiative, content: e.target.value})} />
+                   <textarea rows={6} className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none resize-none focus:border-blue-500" value={editingInitiative.content} onChange={(e) => setEditingInitiative({...editingInitiative, content: e.target.value})} />
+                </div>
+
+                {/* Attachment Section */}
+                <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-4">
+                  <p className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-2"><Paperclip size={14}/> Tài liệu đính kèm</p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                       <label className="text-[9px] font-bold text-slate-400">Tệp tin (Word, Excel, PDF, RAR, PPT...)</label>
+                       <div className="relative">
+                          <input type="file" id="init-attachment" hidden onChange={handleFileUpload} accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.rar,.zip" />
+                          <label htmlFor="init-attachment" className="w-full flex items-center justify-between gap-3 px-5 py-3 bg-white border border-slate-200 rounded-xl cursor-pointer hover:border-blue-500 transition-all">
+                             <span className="text-xs font-bold text-slate-600 truncate">{editingInitiative.attachmentName || 'Chọn tệp tin...'}</span>
+                             <Upload size={16} className="text-slate-400" />
+                          </label>
+                       </div>
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-[9px] font-bold text-slate-400">Đường dẫn trực tuyến (GG Drive)</label>
+                       <div className="relative">
+                          <Link className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                          <input 
+                            type="text" 
+                            placeholder="https://drive.google.com/..." 
+                            className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-xs font-bold focus:border-blue-500 outline-none" 
+                            value={editingInitiative.driveLink || ''}
+                            onChange={(e) => setEditingInitiative({...editingInitiative, driveLink: e.target.value})}
+                          />
+                       </div>
+                    </div>
+                  </div>
+                  {(editingInitiative.attachmentData || editingInitiative.driveLink) && (
+                    <div className="flex justify-end">
+                       <button onClick={() => setEditingInitiative({...editingInitiative, attachmentName: '', attachmentData: '', driveLink: ''})} className="text-[9px] font-black text-rose-500 hover:underline uppercase">Xóa tất cả đính kèm</button>
+                    </div>
+                  )}
                 </div>
              </div>
              <div className="p-8 border-t border-slate-100 bg-slate-50 flex gap-4">
@@ -638,30 +712,91 @@ const App: React.FC = () => {
       {viewingInitiative && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/95 backdrop-blur-xl animate-in zoom-in">
            <div className="bg-white rounded-[4rem] w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
-              <div className="p-12 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              <div className="p-10 lg:p-12 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
                  <div className="flex items-center gap-6">
-                    <div className="bg-blue-600 p-5 rounded-3xl text-white"><Lightbulb size={36} /></div>
+                    <div className="bg-blue-600 p-5 rounded-3xl text-white shadow-lg"><Lightbulb size={36} /></div>
                     <div>
-                      <p className="text-[10px] font-black uppercase text-blue-500 tracking-widest">Innovation Hub Archive</p>
+                      <p className="text-[10px] font-black uppercase text-blue-500 tracking-widest">Hồ sơ lưu trữ điện tử</p>
                       <h3 className="text-3xl font-black text-slate-900 tracking-tight">Chi tiết sáng kiến</h3>
                     </div>
                  </div>
                  <button onClick={() => setViewingInitiative(null)} className="p-4 bg-white rounded-2xl text-slate-400 hover:text-rose-500 shadow-sm border border-slate-100 transition-all"><X size={28} /></button>
               </div>
-              <div className="p-12 overflow-y-auto flex-1 space-y-8 custom-scrollbar">
-                 <h1 className="text-5xl font-black text-slate-900 leading-[1.15] tracking-tight">{viewingInitiative.title}</h1>
-                 <div className="flex items-center gap-4 py-4 px-6 bg-slate-50 rounded-2xl w-fit">
-                    <Users size={20} className="text-blue-500" />
-                    <span className="font-black text-slate-700">{Array.isArray(viewingInitiative.authors) ? viewingInitiative.authors.join(', ') : viewingInitiative.authors}</span>
+              <div className="p-10 lg:p-12 overflow-y-auto flex-1 space-y-8 custom-scrollbar">
+                 <div className="flex flex-wrap gap-2">
+                    <span className="bg-slate-900 text-white px-4 py-1.5 rounded-xl text-xs font-black uppercase">{viewingInitiative.year}</span>
+                    {viewingInitiative.level?.map(lvl => (
+                      <span key={lvl} className={`${LEVEL_COLORS[lvl as InitiativeLevel]} text-white px-4 py-1.5 rounded-xl text-xs font-black uppercase shadow-sm`}>{lvl}</span>
+                    ))}
+                    {viewingInitiative.unit && <span className="bg-indigo-50 text-indigo-700 border border-indigo-100 px-4 py-1.5 rounded-xl text-xs font-black uppercase flex items-center gap-2"><Building2 size={12}/> {viewingInitiative.unit}</span>}
                  </div>
-                 <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-inner">
-                    <p className="text-xl text-slate-700 leading-relaxed font-medium whitespace-pre-wrap">{viewingInitiative.content}</p>
+                 <h1 className="text-4xl lg:text-5xl font-black text-slate-900 leading-[1.15] tracking-tight">{viewingInitiative.title}</h1>
+                 
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="md:col-span-2 space-y-6">
+                       <div className="flex items-center gap-4 py-4 px-6 bg-slate-50 rounded-2xl w-fit">
+                          <Users size={20} className="text-blue-500" />
+                          <span className="font-black text-slate-700">{Array.isArray(viewingInitiative.authors) ? viewingInitiative.authors.join(', ') : viewingInitiative.authors}</span>
+                       </div>
+                       <div className="bg-white p-8 lg:p-10 rounded-[3rem] border border-slate-100 shadow-inner">
+                          <p className="text-lg lg:text-xl text-slate-700 leading-relaxed font-medium whitespace-pre-wrap">{viewingInitiative.content}</p>
+                       </div>
+                    </div>
+
+                    {/* Sidebar with Attachments */}
+                    <div className="space-y-6">
+                       {(viewingInitiative.attachmentData || viewingInitiative.driveLink) ? (
+                         <div className="bg-slate-50 p-6 rounded-[2.5rem] border border-slate-100 space-y-4">
+                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Paperclip size={12}/> Tài liệu minh chứng</p>
+                            <div className="space-y-3">
+                               {viewingInitiative.attachmentData && (
+                                 <a 
+                                   href={viewingInitiative.attachmentData} 
+                                   download={viewingInitiative.attachmentName || 'tai-lieu.pdf'}
+                                   className="w-full flex items-center gap-3 p-4 bg-white rounded-2xl border border-slate-200 hover:border-blue-500 hover:shadow-md transition-all group"
+                                 >
+                                    <div className="p-2 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                                       <FileText size={18} />
+                                    </div>
+                                    <div className="flex-1 overflow-hidden">
+                                       <p className="text-[11px] font-black text-slate-900 truncate">{viewingInitiative.attachmentName || 'Tải tài liệu'}</p>
+                                       <p className="text-[9px] font-bold text-slate-400 uppercase">File đính kèm</p>
+                                    </div>
+                                    <Download size={14} className="text-slate-300" />
+                                 </a>
+                               )}
+                               {viewingInitiative.driveLink && (
+                                 <a 
+                                   href={viewingInitiative.driveLink} 
+                                   target="_blank" 
+                                   rel="noopener noreferrer"
+                                   className="w-full flex items-center gap-3 p-4 bg-white rounded-2xl border border-slate-200 hover:border-indigo-500 hover:shadow-md transition-all group"
+                                 >
+                                    <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                       <Link size={18} />
+                                    </div>
+                                    <div className="flex-1 overflow-hidden">
+                                       <p className="text-[11px] font-black text-slate-900 truncate">Google Drive</p>
+                                       <p className="text-[9px] font-bold text-slate-400 uppercase">Liên kết trực tuyến</p>
+                                    </div>
+                                    <ExternalLink size={14} className="text-slate-300" />
+                                 </a>
+                               )}
+                            </div>
+                         </div>
+                       ) : (
+                         <div className="bg-slate-50 p-8 rounded-[2.5rem] border border-slate-100 flex flex-col items-center justify-center text-center">
+                            <Paperclip size={32} className="text-slate-200 mb-2" />
+                            <p className="text-[10px] font-black uppercase text-slate-300">Không có tài liệu đính kèm</p>
+                         </div>
+                       )}
+                    </div>
                  </div>
               </div>
               {user && (
                 <div className="p-10 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
-                   <p className="text-[10px] font-bold text-slate-400 italic">Phiên làm việc Quản trị viên</p>
-                   <button onClick={() => handleEditInitiative(viewingInitiative)} className="px-10 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg hover:bg-blue-700 transition-all flex items-center gap-2">Sửa nội dung <Edit size={16}/></button>
+                   <p className="text-[10px] font-bold text-slate-400 italic">Quyền truy cập: Quản trị viên</p>
+                   <button onClick={() => handleEditInitiative(viewingInitiative)} className="px-10 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg hover:bg-blue-700 transition-all flex items-center gap-2">Chỉnh sửa sáng kiến <Edit size={16}/></button>
                 </div>
               )}
            </div>
