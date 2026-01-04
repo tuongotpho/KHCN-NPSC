@@ -11,7 +11,7 @@ interface ChatPageProps {
 
 const ChatPage: React.FC<ChatPageProps> = ({ initiatives, activeTheme }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: 'model', text: 'Chào mừng bạn đến với NPSC Hub.\nTôi có thể giúp gì cho bạn về các sáng kiến KHCN?' }
+    { role: 'model', text: 'Chào mừng bạn đến với NPSC Hub.\nTôi đã sẵn sàng tra cứu dữ liệu từ ' + initiatives.length + ' hồ sơ sáng kiến.\nBạn cần tìm hiểu thông tin gì?' }
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -30,15 +30,30 @@ const ChatPage: React.FC<ChatPageProps> = ({ initiatives, activeTheme }) => {
 
     try {
       const ai = getAIInstance();
-      const context = initiatives.map(i => `- [${i.year}] ${i.title}`).join('\n').substring(0, 4000);
+      
+      // Xây dựng ngữ cảnh giàu thông tin hơn
+      const context = initiatives.map(i => {
+        const units = Array.isArray(i.unit) ? i.unit.join(', ') : i.unit;
+        const levels = Array.isArray(i.level) ? i.level.join(', ') : i.level;
+        const authors = Array.isArray(i.authors) ? i.authors.join(', ') : i.authors;
+        const contentPreview = i.content ? i.content.substring(0, 150) + '...' : 'Không có tóm tắt';
+        
+        return `[Năm: ${i.year}] [Cấp: ${levels}] [Đơn vị: ${units}] [Tác giả: ${authors}] Tiêu đề: ${i.title}. Nội dung: ${contentPreview}`;
+      }).join('\n\n').substring(0, 8000); // Tăng giới hạn context lên 8000 ký tự cho Gemini 3 Flash
+
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `Dữ liệu hệ thống:\n${context}\n\nCâu hỏi: ${input}`,
-        config: { systemInstruction: AI_SYSTEM_INSTRUCTION }
+        contents: `DỮ LIỆU HỆ THỐNG HIỆN CÓ:\n${context}\n\nCÂU HỎI NGƯỜI DÙNG: ${input}`,
+        config: { 
+          systemInstruction: AI_SYSTEM_INSTRUCTION,
+          temperature: 0.2 // Giảm temperature để AI trả lời chính xác, ít "sáng tạo" sai lệch
+        }
       });
-      setMessages([...newMsgs, { role: 'model', text: response.text || "Xin lỗi, tôi không thể xử lý lúc này." }]);
+      
+      setMessages([...newMsgs, { role: 'model', text: response.text || "Xin lỗi, tôi không thể tìm thấy thông tin phù hợp." }]);
     } catch (e) {
-      setMessages([...newMsgs, { role: 'model', text: "Lỗi kết nối AI." }]);
+      console.error("AI Error:", e);
+      setMessages([...newMsgs, { role: 'model', text: "Lỗi kết nối AI hoặc dữ liệu quá lớn. Vui lòng thử hỏi cụ thể hơn." }]);
     } finally {
       setIsTyping(false);
     }
@@ -50,7 +65,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ initiatives, activeTheme }) => {
         <div className={`${activeTheme.primary} p-4 rounded-2xl text-white shadow-lg`}><Bot size={28} /></div>
         <div>
           <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Trợ lý AI NPSC</h3>
-          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><Sparkles size={10}/> Powered by Gemini</p>
+          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><Sparkles size={10}/> Dữ liệu thời gian thực</p>
         </div>
       </div>
       
@@ -64,7 +79,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ initiatives, activeTheme }) => {
         ))}
         {isTyping && (
           <div className={`${activeTheme.text} animate-pulse font-black px-6 flex items-center gap-3 text-[10px] uppercase tracking-widest`}>
-            <Loader2 className="animate-spin" size={14}/> Trợ lý đang suy nghĩ...
+            <Loader2 className="animate-spin" size={14}/> Trợ lý đang kiểm tra kho dữ liệu...
           </div>
         )}
         <div ref={chatEndRef} />
@@ -77,7 +92,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ initiatives, activeTheme }) => {
             value={input} 
             onChange={(e) => setInput(e.target.value)} 
             onKeyPress={(e) => e.key === 'Enter' && handleSend()} 
-            placeholder="Tra cứu nhanh sáng kiến..." 
+            placeholder="Hỏi về đơn vị, tác giả hoặc tóm tắt sáng kiến..." 
             className="w-full pl-8 pr-14 py-5 bg-slate-50 dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 rounded-[2.5rem] outline-none font-bold"
           />
           <button onClick={handleSend} className={`absolute right-2 top-1/2 -translate-y-1/2 ${activeTheme.primary} p-3 rounded-full text-white shadow-lg`}><Send size={20} /></button>

@@ -72,20 +72,7 @@ const ListPage: React.FC<ListPageProps> = ({ initiatives, activeTheme, user, onV
     return years;
   }, [initiatives, selectedLevels, selectedUnits]);
 
-  // 3. Tính toán Đơn vị khả dụng dựa trên Cấp và Năm đang chọn
-  const validUnits = useMemo(() => {
-    const units = new Set<string>();
-    initiatives.forEach(i => {
-      const { matchesLevel, matchesYear } = getMatches(i, selectedLevels, selectedYears, []);
-      if (matchesLevel && matchesYear) {
-        const unitArray = Array.isArray(i.unit) ? i.unit : (i.unit ? [i.unit] : []);
-        unitArray.forEach(u => units.add(u));
-      }
-    });
-    return units;
-  }, [initiatives, selectedLevels, selectedYears]);
-
-  // Danh sách gốc để hiển thị UI
+  // 3. Danh sách gốc để hiển thị UI
   const allAvailableYears = useMemo(() => Array.from(new Set(initiatives.map(i => i.year))).sort((a: number, b: number) => b - a), [initiatives]);
   const allAvailableUnits = useMemo(() => {
     const units = new Set<string>();
@@ -96,13 +83,39 @@ const ListPage: React.FC<ListPageProps> = ({ initiatives, activeTheme, user, onV
     return Array.from(units).sort();
   }, [initiatives]);
 
+  // 4. Tính toán số lượng sáng kiến của mỗi đơn vị dựa trên các bộ lọc Khác (Năm & Cấp)
+  const unitCountsMap = useMemo(() => {
+    const counts: Record<string, number> = {};
+    allAvailableUnits.forEach(u => counts[u] = 0);
+
+    initiatives.forEach(i => {
+      // Chỉ kiểm tra khớp với Level và Year (không kiểm tra khớp Unit để đếm cho tất cả unit)
+      const matchesLevel = selectedLevels.length === 0 || (i.level && i.level.some(l => selectedLevels.includes(l as InitiativeLevel)));
+      const matchesYear = selectedYears.length === 0 || selectedYears.includes(i.year);
+      
+      if (matchesLevel && matchesYear) {
+        const itemUnits = Array.isArray(i.unit) ? i.unit : (i.unit ? [i.unit] : []);
+        itemUnits.forEach(u => {
+          if (counts[u] !== undefined) {
+            counts[u]++;
+          }
+        });
+      }
+    });
+    return counts;
+  }, [initiatives, selectedLevels, selectedYears, allAvailableUnits]);
+
+  // Đơn vị khả dụng là những đơn vị có count > 0 dựa trên các bộ lọc khác
+  const validUnits = useMemo(() => {
+    return new Set(Object.keys(unitCountsMap).filter(u => unitCountsMap[u] > 0));
+  }, [unitCountsMap]);
+
   // Lọc danh sách đơn vị hiển thị trong dropdown: chỉ hiện đơn vị có dữ liệu hoặc đang được chọn
   const displayUnits = useMemo(() => {
     return allAvailableUnits.filter(unit => {
       const matchesSearch = unit.toLowerCase().includes(unitSearchQuery.toLowerCase());
       const isAvailable = validUnits.has(unit);
       const isSelected = selectedUnits.includes(unit);
-      // Hiển thị nếu khớp tìm kiếm VÀ (có dữ liệu phù hợp HOẶC đang được chọn để có thể bỏ chọn)
       return matchesSearch && (isAvailable || isSelected);
     });
   }, [allAvailableUnits, unitSearchQuery, validUnits, selectedUnits]);
@@ -229,6 +242,7 @@ const ListPage: React.FC<ListPageProps> = ({ initiatives, activeTheme, user, onV
                       {displayUnits.length > 0 ? (
                         displayUnits.map(unit => {
                           const isSelected = selectedUnits.includes(unit);
+                          const count = unitCountsMap[unit] || 0;
                           return (
                             <button 
                               key={unit} 
@@ -236,7 +250,12 @@ const ListPage: React.FC<ListPageProps> = ({ initiatives, activeTheme, user, onV
                               className={`w-full text-left px-4 py-3 rounded-xl text-[11px] font-bold uppercase transition-all flex items-center justify-between 
                                 ${isSelected ? `${activeTheme.accent} ${activeTheme.text}` : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500'}`}
                             >
-                              <span className="truncate pr-2">{unit}</span>
+                              <span className="truncate pr-2 flex items-center gap-2">
+                                {unit} 
+                                <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${isSelected ? 'bg-white/20' : 'bg-slate-100 dark:bg-slate-700'}`}>
+                                  {count}
+                                </span>
+                              </span>
                               {isSelected && <Check size={14} />}
                             </button>
                           );

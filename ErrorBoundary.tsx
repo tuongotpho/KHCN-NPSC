@@ -3,7 +3,7 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertCircle, RefreshCcw, Home } from 'lucide-react';
 
 interface Props {
-  // Fix: Make children optional to satisfy JSX type checking when used without explicit prop attributes
+  // Children are optional in ErrorBoundary to support flexible usage.
   children?: ReactNode;
 }
 
@@ -15,13 +15,16 @@ interface State {
 /**
  * ErrorBoundary component to catch and handle runtime errors gracefully.
  */
-// Fix: Use the named import 'Component' directly to ensure proper TypeScript inheritance and visibility of inherited members like state and props.
+// Explicitly extending Component from React ensures inherited members are correctly typed.
 class ErrorBoundary extends Component<Props, State> {
-  // Fix: Initialize state as a class property to ensure it is correctly recognized by the instance
-  public state: State = {
-    hasError: false,
-    error: null
-  };
+  // Initialize state in the constructor for robust inheritance tracking.
+  constructor(props: Props) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null
+    };
+  }
 
   public static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
@@ -31,14 +34,14 @@ class ErrorBoundary extends Component<Props, State> {
     console.error('Uncaught error:', error, errorInfo);
   }
 
-  // Fix: The arrow function ensures 'this' context is preserved for inherited methods like setState
+  // Use arrow function to preserve 'this' context when calling inherited setState.
   private handleReset = () => {
     this.setState({ hasError: false, error: null });
     window.location.reload();
   };
 
   public render() {
-    // Fix: Access state and props from the inherited instance members
+    // Access state via the inherited instance property.
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans">
@@ -76,7 +79,7 @@ class ErrorBoundary extends Component<Props, State> {
       );
     }
 
-    // Fix: Return children from props inherited from the base Component class
+    // Return children via the inherited props property.
     return this.props.children;
   }
 }
