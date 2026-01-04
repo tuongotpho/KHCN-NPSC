@@ -15,16 +15,13 @@ interface State {
 /**
  * ErrorBoundary component to catch and handle runtime errors gracefully.
  */
-// Explicitly extending Component from React ensures inherited members are correctly typed.
+// Fix: Explicitly extending Component from react ensures inherited members like state, props, and setState are correctly typed in all environments.
 class ErrorBoundary extends Component<Props, State> {
-  // Initialize state in the constructor for robust inheritance tracking.
-  constructor(props: Props) {
-    super(props);
-    this.state = {
-      hasError: false,
-      error: null
-    };
-  }
+  // Use class property for state initialization to ensure it's correctly recognized by the TypeScript compiler.
+  state: State = {
+    hasError: false,
+    error: null
+  };
 
   public static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
@@ -36,6 +33,7 @@ class ErrorBoundary extends Component<Props, State> {
 
   // Use arrow function to preserve 'this' context when calling inherited setState.
   private handleReset = () => {
+    // Fix: setState is now properly recognized as an inherited method from Component.
     this.setState({ hasError: false, error: null });
     window.location.reload();
   };
@@ -67,6 +65,7 @@ class ErrorBoundary extends Component<Props, State> {
                 <Home size={18} /> Quay lại trang chủ
               </button>
             </div>
+            {/* Display detailed error stack in development mode */}
             {process.env.NODE_ENV === 'development' && this.state.error && (
               <div className="mt-8 p-4 bg-slate-50 rounded-xl text-left overflow-auto max-h-40">
                 <p className="text-[10px] font-mono text-rose-600 whitespace-pre-wrap">
@@ -79,7 +78,7 @@ class ErrorBoundary extends Component<Props, State> {
       );
     }
 
-    // Return children via the inherited props property.
+    // Fix: props is now properly recognized as an inherited property from Component.
     return this.props.children;
   }
 }
