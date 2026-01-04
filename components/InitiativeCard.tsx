@@ -20,6 +20,8 @@ const LEVEL_COLORS: Record<InitiativeLevel, string> = {
 };
 
 const InitiativeCard: React.FC<InitiativeCardProps> = ({ item, activeTheme, user, onView, onEdit, onDelete }) => {
+  const unitsDisplay = Array.isArray(item.unit) ? item.unit.join(', ') : (item.unit || 'N/A');
+
   return (
     <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 lg:p-8 shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-2xl hover:-translate-y-1 transition-all group animate-slide relative overflow-hidden">
       <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${activeTheme.gradient} opacity-0 group-hover:opacity-10 -mr-12 -mt-12 rounded-full transition-opacity duration-500`}></div>
@@ -43,7 +45,7 @@ const InitiativeCard: React.FC<InitiativeCardProps> = ({ item, activeTheme, user
       <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-bold text-xs mb-6 relative z-10"><Users size={14} className={activeTheme.text} /> {Array.isArray(item.authors) ? item.authors.join(', ') : item.authors}</div>
       
       <div className="flex items-center justify-between mt-auto relative z-10">
-        <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase flex items-center gap-1.5 truncate max-w-[150px]"><Building2 size={12} /> {item.unit || 'N/A'}</span>
+        <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase flex items-center gap-1.5 truncate max-w-[150px]"><Building2 size={12} /> {unitsDisplay}</span>
         <button onClick={() => onView(item)} className={`${activeTheme.text} font-black text-[10px] lg:text-xs flex items-center gap-2 hover:gap-3 transition-all pb-1 uppercase tracking-widest`}>Chi tiết <ArrowRight size={14} /></button>
       </div>
     </div>

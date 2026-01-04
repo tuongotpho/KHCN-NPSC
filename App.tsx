@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { onAuthStateChanged, signOut, signInWithEmailAndPassword } from "firebase/auth";
 import { deleteDoc, doc, addDoc, collection, updateDoc } from "firebase/firestore";
 import { auth, db } from "./services/firebase";
@@ -10,7 +10,7 @@ import ChatPage from "./pages/ChatPage";
 import StatsPage from "./pages/StatsPage";
 import ErrorBoundary from "./ErrorBoundary";
 import { Initiative, InitiativeLevel } from "./types";
-import { X, LogIn, Mail, Lock, Lightbulb, Building2, Users, Edit, Award } from 'lucide-react';
+import { X, LogIn, Mail, Lock, Lightbulb, Building2, Users, Edit, Award, Plus, Search } from 'lucide-react';
 
 const THEMES = {
   red: { primary: 'bg-orange-600', hover: 'hover:bg-orange-700', text: 'text-orange-600', border: 'border-orange-200', gradient: 'from-orange-500 to-red-600', accent: 'bg-orange-50', shadow: 'shadow-orange-600/20' },
@@ -43,8 +43,28 @@ const App: React.FC = () => {
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
 
+  // Unit Dropdown States
+  const [unitSearch, setUnitSearch] = useState('');
+  const [showUnitDropdown, setShowUnitDropdown] = useState(false);
+
   const { initiatives, loading, error } = useInitiatives();
   const activeTheme = THEMES[theme];
+
+  const availableUnits = useMemo(() => {
+    const units = new Set<string>();
+    initiatives.forEach(i => {
+      if (Array.isArray(i.unit)) {
+        i.unit.forEach(u => units.add(u));
+      } else if (i.unit) {
+        units.add(i.unit);
+      }
+    });
+    return Array.from(units).sort();
+  }, [initiatives]);
+
+  const filteredUnits = useMemo(() => {
+    return availableUnits.filter(u => u.toLowerCase().includes(unitSearch.toLowerCase()));
+  }, [availableUnits, unitSearch]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, setUser);
@@ -78,11 +98,15 @@ const App: React.FC = () => {
 
   const handleSaveInitiative = async () => {
     if (!editingItem?.title) return alert("Vui lòng nhập tên sáng kiến.");
+    const dataToSave = {
+      ...editingItem,
+      unit: Array.isArray(editingItem.unit) ? editingItem.unit : (editingItem.unit ? [editingItem.unit] : [])
+    };
     try {
       if (editingItem.id) {
-        await updateDoc(doc(db, "initiatives", editingItem.id), editingItem as any);
+        await updateDoc(doc(db, "initiatives", editingItem.id), dataToSave as any);
       } else {
-        await addDoc(collection(db, "initiatives"), editingItem as any);
+        await addDoc(collection(db, "initiatives"), dataToSave as any);
       }
       setEditingItem(null);
     } catch (e) {
@@ -97,6 +121,25 @@ const App: React.FC = () => {
       ? currentLevels.filter(l => l !== lvl)
       : [...currentLevels, lvl];
     setEditingItem({ ...editingItem, level: newLevels });
+  };
+
+  const toggleUnit = (u: string) => {
+    if (!editingItem) return;
+    const currentUnits = Array.isArray(editingItem.unit) ? editingItem.unit : (editingItem.unit ? [editingItem.unit as unknown as string] : []);
+    const newUnits = currentUnits.includes(u)
+      ? currentUnits.filter(unit => unit !== u)
+      : [...currentUnits, u];
+    setEditingItem({ ...editingItem, unit: newUnits });
+  };
+
+  const addNewUnit = () => {
+    if (!unitSearch.trim() || !editingItem) return;
+    const currentUnits = Array.isArray(editingItem.unit) ? editingItem.unit : (editingItem.unit ? [editingItem.unit as unknown as string] : []);
+    if (!currentUnits.includes(unitSearch.trim())) {
+      setEditingItem({ ...editingItem, unit: [...currentUnits, unitSearch.trim()] });
+    }
+    setUnitSearch('');
+    setShowUnitDropdown(false);
   };
 
   if (loading) return (
@@ -119,7 +162,7 @@ const App: React.FC = () => {
           user={user}
           onLogout={() => signOut(auth)}
           onLogin={() => setIsLoginModalOpen(true)}
-          onAdd={() => setEditingItem({ title: '', authors: [], year: new Date().getFullYear(), level: ['HLH'], content: '', unit: '' })}
+          onAdd={() => setEditingItem({ title: '', authors: [], year: new Date().getFullYear(), level: ['HLH'], content: '', unit: [] })}
           onBatch={() => setIsBatchModalOpen(true)}
         />
 
@@ -133,7 +176,7 @@ const App: React.FC = () => {
                 activeTheme={activeTheme} 
                 user={user} 
                 onView={setViewingItem} 
-                onEdit={(item) => setEditingItem({...item})} 
+                onEdit={(item) => setEditingItem({...item, unit: Array.isArray(item.unit) ? item.unit : (item.unit ? [item.unit] : [])})} 
                 onDelete={handleDelete} 
               />
             )}
@@ -165,7 +208,11 @@ const App: React.FC = () => {
                 <div className="flex flex-wrap gap-3">
                   <span className="bg-slate-900 text-white px-5 py-2 rounded-2xl text-[10px] font-black uppercase">Năm {viewingItem.year}</span>
                   {viewingItem.level?.map(lvl => (<span key={lvl} className={`${LEVEL_COLORS[lvl as InitiativeLevel]} text-white px-5 py-2 rounded-2xl text-[10px] font-black uppercase shadow-sm`}>{lvl}</span>))}
-                  <span className={`${activeTheme.accent} dark:bg-slate-800 ${activeTheme.text} px-5 py-2 rounded-2xl text-[10px] font-black uppercase flex items-center gap-2 border border-slate-100 dark:border-slate-700`}><Building2 size={14}/> {viewingItem.unit}</span>
+                  <div className="flex flex-wrap gap-2">
+                    {(Array.isArray(viewingItem.unit) ? viewingItem.unit : [viewingItem.unit]).map((u, i) => (
+                      <span key={i} className={`${activeTheme.accent} dark:bg-slate-800 ${activeTheme.text} px-5 py-2 rounded-2xl text-[10px] font-black uppercase flex items-center gap-2 border border-slate-100 dark:border-slate-700`}><Building2 size={14}/> {u}</span>
+                    ))}
+                  </div>
                 </div>
                 <h1 className="text-3xl lg:text-4xl font-black text-slate-900 dark:text-white uppercase leading-tight">{viewingItem.title}</h1>
                 <div className="flex items-center gap-3 text-slate-500 font-bold text-lg"><Users size={20} className={activeTheme.text}/> {viewingItem.authors?.join(', ')}</div>
@@ -183,7 +230,7 @@ const App: React.FC = () => {
             <div className="bg-white dark:bg-slate-900 rounded-[3rem] w-full max-w-2xl max-h-[95vh] shadow-2xl flex flex-col overflow-hidden">
                <div className="p-8 border-b dark:border-slate-800 flex items-center justify-between">
                  <h3 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3"><Edit className={activeTheme.text}/> Cập nhật hồ sơ</h3>
-                 <button onClick={() => setEditingItem(null)} className="p-4 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-all"><X size={28} /></button>
+                 <button onClick={() => { setEditingItem(null); setShowUnitDropdown(false); }} className="p-4 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-all"><X size={28} /></button>
                </div>
                <div className="p-8 overflow-y-auto flex-1 space-y-6 custom-scrollbar">
                   <div className="space-y-1"><label className="text-[9px] font-black uppercase text-slate-400 ml-2">Tên sáng kiến</label><input className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl font-bold" value={editingItem.title} onChange={e => setEditingItem({...editingItem, title: e.target.value})} /></div>
@@ -203,16 +250,65 @@ const App: React.FC = () => {
                     </div>
                   </div>
 
+                  <div className="space-y-1 relative">
+                    <label className="text-[9px] font-black uppercase text-slate-400 ml-2 flex items-center gap-1"><Building2 size={10}/> Đơn vị thực hiện</label>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {(Array.isArray(editingItem.unit) ? editingItem.unit : (editingItem.unit ? [editingItem.unit as unknown as string] : [])).map((u, i) => (
+                        <div key={i} className={`${activeTheme.primary} text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 shadow-sm`}>
+                          {u}
+                          <button onClick={() => toggleUnit(u)} className="hover:text-red-200"><X size={14}/></button>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <div className="relative">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <input 
+                        type="text" 
+                        placeholder="Tìm hoặc thêm đơn vị mới..." 
+                        className="w-full pl-12 pr-6 py-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl font-bold"
+                        value={unitSearch}
+                        onChange={(e) => { setUnitSearch(e.target.value); setShowUnitDropdown(true); }}
+                        onFocus={() => setShowUnitDropdown(true)}
+                        onKeyPress={(e) => e.key === 'Enter' && addNewUnit()}
+                      />
+                      {showUnitDropdown && (
+                        <div className="absolute z-10 w-full mt-2 bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-2xl shadow-2xl max-h-48 overflow-y-auto custom-scrollbar p-2">
+                          {filteredUnits.length > 0 ? (
+                            filteredUnits.map((u, i) => (
+                              <button 
+                                key={i} 
+                                onClick={() => { toggleUnit(u); setShowUnitDropdown(false); setUnitSearch(''); }}
+                                className={`w-full text-left px-4 py-3 rounded-xl text-xs font-black uppercase transition-all ${(editingItem.unit as string[])?.includes(u) ? activeTheme.primary + ' text-white' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                              >
+                                {u}
+                              </button>
+                            ))
+                          ) : (
+                            <p className="text-[10px] font-bold text-slate-400 p-4 text-center uppercase tracking-widest">Không có sẵn</p>
+                          )}
+                          {unitSearch.trim() && !availableUnits.includes(unitSearch.trim()) && (
+                            <button 
+                              onClick={addNewUnit}
+                              className="w-full text-left px-4 py-3 rounded-xl text-xs font-black uppercase text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950 flex items-center gap-2 border-t mt-1"
+                            >
+                              <Plus size={14}/> Thêm mới: "{unitSearch}"
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1"><label className="text-[9px] font-black uppercase text-slate-400 ml-2">Năm</label><input type="number" className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl font-bold" value={editingItem.year} onChange={e => setEditingItem({...editingItem, year: parseInt(e.target.value)})} /></div>
                     <div className="space-y-1"><label className="text-[9px] font-black uppercase text-slate-400 ml-2">Lĩnh vực</label><input className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl font-bold" value={editingItem.field} onChange={e => setEditingItem({...editingItem, field: e.target.value})} /></div>
                   </div>
-                  <div className="space-y-1"><label className="text-[9px] font-black uppercase text-slate-400 ml-2">Đơn vị</label><input className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl font-bold" value={editingItem.unit} onChange={e => setEditingItem({...editingItem, unit: e.target.value})} /></div>
                   <div className="space-y-1"><label className="text-[9px] font-black uppercase text-slate-400 ml-2">Tác giả</label><input className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl font-bold" value={editingItem.authors?.join(', ')} onChange={e => setEditingItem({...editingItem, authors: e.target.value.split(',').map(a => a.trim())})} /></div>
                   <div className="space-y-1"><label className="text-[9px] font-black uppercase text-slate-400 ml-2">Tóm tắt nội dung</label><textarea rows={5} className="w-full px-6 py-5 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-[2rem] font-bold resize-none" value={editingItem.content} onChange={e => setEditingItem({...editingItem, content: e.target.value})} /></div>
                </div>
                <div className="p-8 border-t dark:border-slate-800 flex gap-4">
-                 <button onClick={() => setEditingItem(null)} className="flex-1 py-4 border-2 border-slate-200 dark:border-slate-700 rounded-[2rem] font-black text-slate-400 uppercase text-[10px]">Hủy</button>
+                 <button onClick={() => { setEditingItem(null); setShowUnitDropdown(false); }} className="flex-1 py-4 border-2 border-slate-200 dark:border-slate-700 rounded-[2rem] font-black text-slate-400 uppercase text-[10px]">Hủy</button>
                  <button onClick={handleSaveInitiative} className={`flex-[2] py-4 ${activeTheme.primary} text-white rounded-[2rem] font-black shadow-lg uppercase text-[10px]`}>Lưu thay đổi</button>
                </div>
             </div>

@@ -9,7 +9,7 @@ export interface Initiative {
   title: string;
   content: string;
   authors: string[];
-  unit: string;
+  unit: string[]; // Thay đổi từ string sang string[]
   result: string;
   field: string;
   reward: string;
@@ -27,7 +27,7 @@ export interface BatchItem {
   selected: boolean;
   title: string;
   authors: string[];
-  unit: string;
+  unit: string[];
   year: number;
   content: string;
   field: string;

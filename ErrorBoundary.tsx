@@ -1,8 +1,10 @@
-import React, { ErrorInfo, ReactNode } from 'react';
+
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertCircle, RefreshCcw, Home } from 'lucide-react';
 
 interface Props {
-  children: ReactNode;
+  // Fix: Make children optional to satisfy JSX type checking when used without explicit prop attributes
+  children?: ReactNode;
 }
 
 interface State {
@@ -10,8 +12,12 @@ interface State {
   error: Error | null;
 }
 
-// Fix: Explicitly extending React.Component to ensure the TypeScript compiler correctly identifies the class as a React component, granting access to setState and props.
-class ErrorBoundary extends React.Component<Props, State> {
+/**
+ * ErrorBoundary component to catch and handle runtime errors gracefully.
+ */
+// Fix: Use the named import 'Component' directly to ensure proper TypeScript inheritance and visibility of inherited members like state and props.
+class ErrorBoundary extends Component<Props, State> {
+  // Fix: Initialize state as a class property to ensure it is correctly recognized by the instance
   public state: State = {
     hasError: false,
     error: null
@@ -25,15 +31,14 @@ class ErrorBoundary extends React.Component<Props, State> {
     console.error('Uncaught error:', error, errorInfo);
   }
 
-  // Use arrow function to ensure 'this' refers to the ErrorBoundary instance,
-  // allowing access to the inherited setState method.
+  // Fix: The arrow function ensures 'this' context is preserved for inherited methods like setState
   private handleReset = () => {
-    // Fix: Accessing setState from the correctly bound 'this' context
     this.setState({ hasError: false, error: null });
     window.location.reload();
   };
 
   public render() {
+    // Fix: Access state and props from the inherited instance members
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans">
@@ -71,7 +76,7 @@ class ErrorBoundary extends React.Component<Props, State> {
       );
     }
 
-    // Fix: Access children from props correctly using this.props.children
+    // Fix: Return children from props inherited from the base Component class
     return this.props.children;
   }
 }

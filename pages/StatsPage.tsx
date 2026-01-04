@@ -52,7 +52,9 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
     return initiatives.filter(i => {
       if (statsView === 'level') return i.level?.includes(statsDetailValue as InitiativeLevel);
       if (statsView === 'year') return i.year === Number(statsDetailValue);
-      if (statsView === 'unit') return i.unit === statsDetailValue;
+      if (statsView === 'unit') {
+        return Array.isArray(i.unit) ? i.unit.includes(statsDetailValue as string) : i.unit === statsDetailValue;
+      }
       if (statsView === 'field') return (i.field || 'Khác') === statsDetailValue;
       return false;
     });
@@ -176,7 +178,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
                     >
                       <div className="flex justify-between items-start mb-3">
                         <span className={`text-[10px] font-black ${activeTheme.text} uppercase`}>Năm {item.year}</span>
-                        <span className="text-[9px] font-bold text-slate-400 uppercase">{item.unit}</span>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">{Array.isArray(item.unit) ? item.unit.join(', ') : item.unit}</span>
                       </div>
                       <p className="text-base font-bold text-slate-800 dark:text-white leading-tight uppercase group-hover:text-orange-600 transition-colors">{item.title}</p>
                     </div>
