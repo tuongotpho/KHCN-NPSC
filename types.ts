@@ -9,19 +9,16 @@ export interface Initiative {
   title: string;
   content: string;
   authors: string[];
-  unit: string[]; // Thay đổi từ string sang string[]
+  unit: string[];
   result: string;
   field: string;
   reward: string;
   level: InitiativeLevel[];
   attachmentName?: string;
-  attachmentData?: string; // Lưu base64 cho demo đơn giản
-  driveLink?: string; // Đường dẫn Google Drive hoặc tài liệu trực tuyến
+  attachmentUrl?: string; // Chuyển từ attachmentData (base64) sang attachmentUrl (Firebase Storage URL)
+  driveLink?: string; 
 }
 
-/**
- * Interface representing a item extracted from a PDF before being saved to the database.
- */
 export interface BatchItem {
   tempId: string;
   selected: boolean;
@@ -44,7 +41,7 @@ export interface AnalysisResult {
   evaluation: string;
   similarity: {
     isDuplicate: boolean;
-    score: number; // 0-100
+    score: number;
     reason: string;
     similarToId?: string;
   };

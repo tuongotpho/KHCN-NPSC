@@ -1,5 +1,5 @@
 
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { ErrorInfo, ReactNode } from 'react';
 import { AlertCircle, RefreshCcw, Home } from 'lucide-react';
 
 interface Props {
@@ -15,13 +15,16 @@ interface State {
 /**
  * ErrorBoundary component to catch and handle runtime errors gracefully.
  */
-// Fix: Explicitly extending Component from react ensures inherited members like state, props, and setState are correctly typed in all environments.
-class ErrorBoundary extends Component<Props, State> {
-  // Use class property for state initialization to ensure it's correctly recognized by the TypeScript compiler.
-  state: State = {
-    hasError: false,
-    error: null
-  };
+// Fix: Explicitly extending React.Component ensures that standard properties like 'state', 'props', and 'setState' are correctly typed and available.
+class ErrorBoundary extends React.Component<Props, State> {
+  // Fix: Initializing state in the constructor with a call to super(props) satisfies inheritance requirements.
+  constructor(props: Props) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null
+    };
+  }
 
   public static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
@@ -33,13 +36,13 @@ class ErrorBoundary extends Component<Props, State> {
 
   // Use arrow function to preserve 'this' context when calling inherited setState.
   private handleReset = () => {
-    // Fix: setState is now properly recognized as an inherited method from Component.
+    // Fix: setState is now properly recognized as a member of the React.Component instance.
     this.setState({ hasError: false, error: null });
     window.location.reload();
   };
 
   public render() {
-    // Access state via the inherited instance property.
+    // Fix: Access state via the inherited instance property, now correctly recognized by extending React.Component.
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans">
@@ -65,20 +68,12 @@ class ErrorBoundary extends Component<Props, State> {
                 <Home size={18} /> Quay lại trang chủ
               </button>
             </div>
-            {/* Display detailed error stack in development mode */}
-            {process.env.NODE_ENV === 'development' && this.state.error && (
-              <div className="mt-8 p-4 bg-slate-50 rounded-xl text-left overflow-auto max-h-40">
-                <p className="text-[10px] font-mono text-rose-600 whitespace-pre-wrap">
-                  {this.state.error.toString()}
-                </p>
-              </div>
-            )}
           </div>
         </div>
       );
     }
 
-    // Fix: props is now properly recognized as an inherited property from Component.
+    // Fix: Return children from the inherited props property.
     return this.props.children;
   }
 }
