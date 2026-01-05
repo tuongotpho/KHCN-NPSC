@@ -41,7 +41,8 @@ const InitiativeCard: React.FC<InitiativeCardProps> = ({ item, activeTheme, user
         )}
       </div>
       
-      <h3 className="text-xl lg:text-2xl font-black text-slate-900 dark:text-white mb-4 leading-tight line-clamp-2 min-h-[3.5rem] group-hover:text-orange-600 transition-colors tracking-tight uppercase relative z-10">{item.title}</h3>
+      {/* Đã giảm kích thước font chữ tại đây: text-lg lg:text-xl và cho phép hiển thị tối đa 3 dòng */}
+      <h3 className="text-lg lg:text-xl font-black text-slate-900 dark:text-white mb-4 leading-tight line-clamp-3 min-h-[3.5rem] group-hover:text-orange-600 transition-colors tracking-tight uppercase relative z-10">{item.title}</h3>
       <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-bold text-xs mb-6 relative z-10"><Users size={14} className={activeTheme.text} /> {Array.isArray(item.authors) ? item.authors.join(', ') : item.authors}</div>
       
       <div className="flex items-center justify-between mt-auto relative z-10">

@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { onAuthStateChanged, signOut, signInWithEmailAndPassword } from "firebase/auth";
 import { deleteDoc, doc, addDoc, collection, updateDoc } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+// Removed broken modular storage imports
 import { auth, db, storage } from "./services/firebase";
 import { useInitiatives } from "./hooks/useInitiatives";
 import Sidebar from "./components/Sidebar";
@@ -99,8 +98,11 @@ const App: React.FC = () => {
     try {
       if (item?.attachmentUrl) {
         try {
-          const fileRef = ref(storage, item.attachmentUrl);
-          await deleteObject(fileRef);
+          // Changed to compat API
+          const fileRef = item.attachmentUrl.startsWith('http') 
+            ? storage.refFromURL(item.attachmentUrl)
+            : storage.ref(item.attachmentUrl);
+          await fileRef.delete();
         } catch (e) {
           console.warn("Could not delete file from storage.");
         }
@@ -129,10 +131,11 @@ const App: React.FC = () => {
     setUploadError(null);
     try {
       const safeFileName = file.name.replace(/[^a-z0-9.]/gi, '_').toLowerCase();
-      const storageRef = ref(storage, `initiatives/${Date.now()}_${safeFileName}`);
+      // Changed to compat API
+      const storageRef = storage.ref(`initiatives/${Date.now()}_${safeFileName}`);
       
-      const snapshot = await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(snapshot.ref);
+      const snapshot = await storageRef.put(file);
+      const downloadURL = await snapshot.ref.getDownloadURL();
 
       setEditingItem(prev => ({
         ...prev,
