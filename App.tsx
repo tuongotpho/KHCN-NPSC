@@ -1,13 +1,14 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
-import { onAuthStateChanged, signOut, signInWithEmailAndPassword } from "firebase/auth";
-import { deleteDoc, doc, addDoc, collection, updateDoc } from "firebase/firestore";
-// Removed broken modular storage imports
+// Firebase imports replaced with compat methods usage via services/firebase
 import { auth, db, storage } from "./services/firebase";
 import { useInitiatives } from "./hooks/useInitiatives";
 import Sidebar from "./components/Sidebar";
 import ListPage from "./pages/ListPage";
 import ChatPage from "./pages/ChatPage";
 import StatsPage from "./pages/StatsPage";
+import BubblePage from "./pages/BubblePage";
+import TreeMapPage from "./pages/TreeMapPage";
 import ErrorBoundary from "./ErrorBoundary";
 import { Initiative, InitiativeLevel } from "./types";
 import { 
@@ -30,7 +31,7 @@ const LEVEL_COLORS: Record<InitiativeLevel, string> = {
 };
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'list' | 'stats' | 'chat'>('list');
+  const [activeTab, setActiveTab] = useState<'list' | 'stats' | 'chat' | 'bubble' | 'treemap'>('list');
   const [theme, setTheme] = useState<keyof typeof THEMES>('red');
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
   const [user, setUser] = useState<any>(null);
@@ -72,7 +73,7 @@ const App: React.FC = () => {
   }, [availableUnits, unitSearch]);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, setUser);
+    const unsubscribe = auth.onAuthStateChanged(setUser);
     return unsubscribe;
   }, []);
 
@@ -84,7 +85,7 @@ const App: React.FC = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await auth.signInWithEmailAndPassword(email, password);
       setIsLoginModalOpen(false);
       setAuthError('');
     } catch (err) {
@@ -98,7 +99,6 @@ const App: React.FC = () => {
     try {
       if (item?.attachmentUrl) {
         try {
-          // Changed to compat API
           const fileRef = item.attachmentUrl.startsWith('http') 
             ? storage.refFromURL(item.attachmentUrl)
             : storage.ref(item.attachmentUrl);
@@ -107,7 +107,7 @@ const App: React.FC = () => {
           console.warn("Could not delete file from storage.");
         }
       }
-      await deleteDoc(doc(db, "initiatives", id));
+      await db.collection("initiatives").doc(id).delete();
     } catch (e) {
       alert("Lỗi khi xóa tài liệu.");
     }
@@ -131,7 +131,6 @@ const App: React.FC = () => {
     setUploadError(null);
     try {
       const safeFileName = file.name.replace(/[^a-z0-9.]/gi, '_').toLowerCase();
-      // Changed to compat API
       const storageRef = storage.ref(`initiatives/${Date.now()}_${safeFileName}`);
       
       const snapshot = await storageRef.put(file);
@@ -171,9 +170,9 @@ const App: React.FC = () => {
     };
     try {
       if (editingItem.id) {
-        await updateDoc(doc(db, "initiatives", editingItem.id), dataToSave as any);
+        await db.collection("initiatives").doc(editingItem.id).update(dataToSave);
       } else {
-        await addDoc(collection(db, "initiatives"), dataToSave as any);
+        await db.collection("initiatives").add(dataToSave);
       }
       setEditingItem(null);
       setUploadError(null);
@@ -228,7 +227,7 @@ const App: React.FC = () => {
           activeTheme={activeTheme}
           setTheme={setTheme as any}
           user={user}
-          onLogout={() => signOut(auth)}
+          onLogout={() => auth.signOut()}
           onLogin={() => setIsLoginModalOpen(true)}
           onAdd={() => setEditingItem({ title: '', authors: [], year: new Date().getFullYear(), level: ['HLH'], content: '', unit: [] })}
           onBatch={() => setIsBatchModalOpen(true)}
@@ -249,6 +248,28 @@ const App: React.FC = () => {
               />
             )}
             
+            {activeTab === 'bubble' && (
+              <BubblePage 
+                initiatives={initiatives} 
+                activeTheme={activeTheme} 
+                user={user}
+                onView={setViewingItem}
+                onEdit={(item) => { setEditingItem({...item, unit: Array.isArray(item.unit) ? item.unit : (item.unit ? [item.unit] : [])}); setUploadError(null); }} 
+                onDelete={handleDelete}
+              />
+            )}
+
+             {activeTab === 'treemap' && (
+              <TreeMapPage 
+                initiatives={initiatives} 
+                activeTheme={activeTheme} 
+                user={user}
+                onView={setViewingItem}
+                onEdit={(item) => { setEditingItem({...item, unit: Array.isArray(item.unit) ? item.unit : (item.unit ? [item.unit] : [])}); setUploadError(null); }} 
+                onDelete={handleDelete}
+              />
+            )}
+
             {activeTab === 'stats' && (
               <StatsPage 
                 initiatives={initiatives} 

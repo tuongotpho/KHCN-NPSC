@@ -1,6 +1,4 @@
-
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { Initiative } from "../types";
 
@@ -10,8 +8,8 @@ export const useInitiatives = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const q = query(collection(db, "initiatives"), orderBy("year", "desc"));
-    const unsubscribe = onSnapshot(q, 
+    // Using compat API for Firestore query
+    const unsubscribe = db.collection("initiatives").orderBy("year", "desc").onSnapshot(
       (snapshot) => {
         const items = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Initiative));
         setInitiatives(items);

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { LayoutDashboard, BarChart3, Bot, LogOut, BrainCircuit, Sun, Moon, Palette, Plus, FileUp, LogIn } from 'lucide-react';
+import { LayoutDashboard, BarChart3, Bot, LogOut, BrainCircuit, Sun, Moon, Palette, Plus, FileUp, LogIn, Disc, LayoutGrid } from 'lucide-react';
 import { InitiativeLevel } from '../types';
 
 interface SidebarProps {
@@ -53,6 +53,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       <nav className="space-y-1.5 flex-1 mt-4">
         {[
           { id: 'list', label: 'Danh mục', icon: LayoutDashboard },
+          { id: 'bubble', label: 'Bản đồ bóng', icon: Disc },
+          { id: 'treemap', label: 'Bản đồ nhiệt', icon: LayoutGrid },
           { id: 'stats', label: 'Thống kê', icon: BarChart3 },
           { id: 'chat', label: 'Trợ lý AI', icon: Bot },
         ].map(nav => (
