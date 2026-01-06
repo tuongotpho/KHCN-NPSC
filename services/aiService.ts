@@ -1,9 +1,8 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { InitiativeLevel } from "../types";
+import { Initiative, SimilarityInfo } from "../types";
 
 export const getAIInstance = () => {
-  // Ensure API Key is available from process.env as per guidelines
   return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
@@ -20,7 +19,6 @@ QUY TẮC TRÌNH BÀY:
 3. Tiêu đề viết hoa, xuống dòng rõ ràng giữa các ý.
 4. Ngôn ngữ hành chính, chuyên nghiệp, súc tích.`;
 
-// Schema definition for extracting initiatives
 const initiativeSchema = {
   type: Type.ARRAY,
   items: {
@@ -38,8 +36,8 @@ const initiativeSchema = {
         description: "Tên các đơn vị áp dụng/thực hiện"
       },
       year: { type: Type.INTEGER, description: "Năm công nhận" },
-      content: { type: Type.STRING, description: "Tóm tắt ngắn gọn nội dung giải pháp (khoảng 50 từ)" },
-      field: { type: Type.STRING, description: "Lĩnh vực chuyên môn (ví dụ: Kỹ thuật, Kinh doanh, ATVSLĐ...)" },
+      content: { type: Type.STRING, description: "Tóm tắt ngắn gọn nội dung giải pháp" },
+      field: { type: Type.STRING, description: "Lĩnh vực chuyên môn" },
       level: { 
         type: Type.ARRAY,
         items: { type: Type.STRING, enum: ["HLH", "NPSC", "NPC", "EVN"] },
@@ -50,36 +48,70 @@ const initiativeSchema = {
   }
 };
 
+const similaritySchema = {
+  type: Type.ARRAY,
+  items: {
+    type: Type.OBJECT,
+    properties: {
+      tempId: { type: Type.STRING },
+      score: { type: Type.NUMBER, description: "Điểm trùng lặp từ 0-100" },
+      status: { type: Type.STRING, enum: ["new", "similar", "duplicate"] },
+      reason: { type: Type.STRING, description: "Lý do đánh giá mức độ trùng lặp" },
+      referenceTitle: { type: Type.STRING, description: "Tiêu đề sáng kiến cũ bị trùng (nếu có)" }
+    },
+    required: ["tempId", "score", "status", "reason"]
+  }
+};
+
 export const extractInitiativesFromPDF = async (base64Data: string, mimeType: string = "application/pdf") => {
   const ai = getAIInstance();
-  
   try {
     const response = await ai.models.generateContent({
-      // Use gemini-3-pro-preview for complex reasoning and structured data extraction tasks
       model: 'gemini-3-pro-preview',
       contents: {
         parts: [
-          {
-            inlineData: {
-              mimeType: mimeType,
-              data: base64Data
-            }
-          },
-          {
-            text: "Hãy phân tích tài liệu đính kèm và trích xuất danh sách các sáng kiến. Trả về định dạng JSON chính xác theo schema. Nếu không tìm thấy thông tin cụ thể (ví dụ: năm, cấp), hãy tự suy luận dựa trên ngữ cảnh hoặc để trống."
-          }
+          { inlineData: { mimeType, data: base64Data } },
+          { text: "Hãy phân tích tài liệu đính kèm và trích xuất danh sách các sáng kiến. Trả về định dạng JSON chính xác theo schema." }
         ]
       },
       config: {
         responseMimeType: "application/json",
         responseSchema: initiativeSchema,
-        temperature: 0.1 // Low temperature for higher accuracy in extraction
+        temperature: 0.1
+      }
+    });
+    return response.text ? JSON.parse(response.text) : [];
+  } catch (error) {
+    console.error("Error extracting PDF data:", error);
+    throw error;
+  }
+};
+
+export const checkSimilarityBatch = async (newItems: any[], existingInitiatives: Initiative[]) => {
+  const ai = getAIInstance();
+  
+  // Tối ưu hóa context: Chỉ gửi Tiêu đề và Tóm tắt để tiết kiệm token
+  const catalog = existingInitiatives.map(i => ({
+    id: i.id,
+    title: i.title,
+    content: i.content?.substring(0, 100)
+  }));
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: `KHO DỮ LIỆU CŨ:\n${JSON.stringify(catalog)}\n\nDANH SÁCH MỚI CẦN KIỂM TRA:\n${JSON.stringify(newItems)}`,
+      config: {
+        systemInstruction: "Bạn là chuyên gia kiểm soát trùng lặp sáng kiến. Hãy so sánh danh sách mới với kho dữ liệu cũ. 'duplicate' nếu giống >80%, 'similar' nếu giống 40-80%, 'new' nếu dưới 40%. Trả về JSON.",
+        responseMimeType: "application/json",
+        responseSchema: similaritySchema,
+        temperature: 0.1
       }
     });
 
     return response.text ? JSON.parse(response.text) : [];
   } catch (error) {
-    console.error("Error extracting PDF data:", error);
-    throw error;
+    console.error("Similarity Check Error:", error);
+    return [];
   }
 };

@@ -16,6 +16,7 @@ interface StatsPageProps {
 }
 
 const ITEMS_PER_PAGE = 5;
+const HOF_LIMIT_EXPANDED = 23; // Giới hạn mới theo yêu cầu
 
 // Hệ số điểm theo cấp độ sáng kiến
 const LEVEL_WEIGHTS: Record<InitiativeLevel, number> = {
@@ -110,7 +111,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
   // Danh sách hiển thị dựa trên tab và trạng thái mở rộng
   const displayedHofItems = useMemo(() => {
     const baseList = hallOfFameTab === 'author' ? allAuthorsSorted : allUnitsSorted;
-    const limit = isHofExpanded ? 24 : 10;
+    const limit = isHofExpanded ? HOF_LIMIT_EXPANDED : 10;
     return baseList.slice(0, limit);
   }, [hallOfFameTab, isHofExpanded, allAuthorsSorted, allUnitsSorted]);
 
@@ -195,7 +196,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
         ))}
       </div>
 
-      {/* Bảng Vàng Vinh Danh - Hỗ trợ mở rộng danh sách */}
+      {/* Bảng Vàng Vinh Danh - Tối ưu nút xem toàn bộ */}
       <div className="bg-slate-950 rounded-[4rem] p-10 lg:p-14 text-white relative overflow-hidden shadow-2xl border border-white/5">
         <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-amber-500/5 rounded-full blur-[120px] -mr-64 -mt-64"></div>
         
@@ -217,13 +218,13 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
             </div>
 
             <div className="flex flex-wrap items-center gap-4">
-               {/* Toggle View Mode */}
+               {/* Toggle View Mode - Đã bỏ số lượng cứng */}
                <button 
                 onClick={() => setIsHofExpanded(!isHofExpanded)}
                 className={`flex items-center gap-3 px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${isHofExpanded ? 'bg-amber-500 text-slate-950 border-transparent shadow-2xl shadow-amber-500/20' : 'bg-white/5 text-slate-400 border-white/10 hover:border-amber-500/50'}`}
                >
                 {isHofExpanded ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
-                {isHofExpanded ? 'Thu gọn Top 10' : `Xem toàn bộ (${hallOfFameTab === 'unit' ? '24' : '24'} vị trí)`}
+                {isHofExpanded ? 'Thu gọn danh sách' : 'Xem toàn bộ danh sách'}
                </button>
 
                <div className="bg-white/5 p-1.5 rounded-2xl border border-white/10 flex shadow-2xl">

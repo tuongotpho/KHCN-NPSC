@@ -15,8 +15,15 @@ export interface Initiative {
   reward: string;
   level: InitiativeLevel[];
   attachmentName?: string;
-  attachmentUrl?: string; // Chuyển từ attachmentData (base64) sang attachmentUrl (Firebase Storage URL)
+  attachmentUrl?: string;
   driveLink?: string; 
+}
+
+export interface SimilarityInfo {
+  score: number; // 0-100
+  status: 'new' | 'similar' | 'duplicate';
+  reason: string;
+  referenceTitle?: string;
 }
 
 export interface BatchItem {
@@ -29,6 +36,7 @@ export interface BatchItem {
   content: string;
   field: string;
   level: InitiativeLevel[];
+  similarity?: SimilarityInfo; // Thông tin trùng lặp
 }
 
 export interface ChatMessage {
@@ -53,7 +61,7 @@ export interface ReferenceDocument {
   description: string;
   fileName: string;
   fileUrl: string;
-  fileType: string; // MIME type hoặc extension
+  fileType: string;
   size: number;
   uploadDate: number;
   uploadedBy: string;
