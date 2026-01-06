@@ -1,7 +1,8 @@
-
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
+import { InitiativeLevel } from "../types";
 
 export const getAIInstance = () => {
+  // Ensure API Key is available from process.env as per guidelines
   return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
@@ -17,3 +18,66 @@ QUY TẮC TRÌNH BÀY:
 2. Sử dụng dấu gạch đầu dòng (-) cho danh sách.
 3. Tiêu đề viết hoa, xuống dòng rõ ràng giữa các ý.
 4. Ngôn ngữ hành chính, chuyên nghiệp, súc tích.`;
+
+// Schema definition for extracting initiatives
+const initiativeSchema = {
+  type: Type.ARRAY,
+  items: {
+    type: Type.OBJECT,
+    properties: {
+      title: { type: Type.STRING, description: "Tên đầy đủ của sáng kiến" },
+      authors: { 
+        type: Type.ARRAY, 
+        items: { type: Type.STRING },
+        description: "Danh sách tên các tác giả"
+      },
+      unit: { 
+        type: Type.ARRAY,
+        items: { type: Type.STRING },
+        description: "Tên các đơn vị áp dụng/thực hiện"
+      },
+      year: { type: Type.INTEGER, description: "Năm công nhận" },
+      content: { type: Type.STRING, description: "Tóm tắt ngắn gọn nội dung giải pháp (khoảng 50 từ)" },
+      field: { type: Type.STRING, description: "Lĩnh vực chuyên môn (ví dụ: Kỹ thuật, Kinh doanh, ATVSLĐ...)" },
+      level: { 
+        type: Type.ARRAY,
+        items: { type: Type.STRING, enum: ["HLH", "NPSC", "NPC", "EVN"] },
+        description: "Các cấp công nhận"
+      }
+    },
+    required: ["title", "year"]
+  }
+};
+
+export const extractInitiativesFromPDF = async (base64Data: string, mimeType: string = "application/pdf") => {
+  const ai = getAIInstance();
+  
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: {
+        parts: [
+          {
+            inlineData: {
+              mimeType: mimeType,
+              data: base64Data
+            }
+          },
+          {
+            text: "Hãy phân tích tài liệu đính kèm và trích xuất danh sách các sáng kiến. Trả về định dạng JSON chính xác theo schema. Nếu không tìm thấy thông tin cụ thể (ví dụ: năm, cấp), hãy tự suy luận dựa trên ngữ cảnh hoặc để trống."
+          }
+        ]
+      },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: initiativeSchema,
+        temperature: 0.1 // Low temperature for higher accuracy in extraction
+      }
+    });
+
+    return response.text ? JSON.parse(response.text) : [];
+  } catch (error) {
+    console.error("Error extracting PDF data:", error);
+    throw error;
+  }
+};

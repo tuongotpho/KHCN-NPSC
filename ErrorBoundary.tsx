@@ -14,7 +14,7 @@ interface State {
 /**
  * ErrorBoundary component to catch and handle runtime errors gracefully.
  */
-class ErrorBoundary extends Component<Props, State> {
+class ErrorBoundary extends React.Component<Props, State> {
   public state: State = {
     hasError: false,
     error: null

@@ -11,6 +11,7 @@ import BubblePage from "./pages/BubblePage";
 import TreeMapPage from "./pages/TreeMapPage";
 import ReferencePage from "./pages/ReferencePage";
 import ErrorBoundary from "./ErrorBoundary";
+import BatchImportModal from "./components/BatchImportModal";
 import { Initiative, InitiativeLevel } from "./types";
 import { 
   X, LogIn, Mail, Lock, Lightbulb, Building2, Users, Edit, 
@@ -286,6 +287,13 @@ const App: React.FC = () => {
             )}
           </div>
         </main>
+
+        {/* BATCH IMPORT MODAL */}
+        <BatchImportModal 
+          isOpen={isBatchModalOpen} 
+          onClose={() => setIsBatchModalOpen(false)} 
+          activeTheme={activeTheme}
+        />
 
         {/* VIEW MODAL - CHỈNH SỬA ĐỂ HIỂN THỊ TÀI LIỆU CHO KHÁCH */}
         {viewingItem && (
