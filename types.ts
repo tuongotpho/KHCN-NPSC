@@ -19,6 +19,25 @@ export interface Initiative {
   driveLink?: string; 
 }
 
+export type SettlementStatus = 'chua_thanh_toan' | 'dang_thanh_toan' | 'da_quyet_toan';
+export type ProjectStatus = 'dang_thuc_hien' | 'da_nghiem_thu' | 'da_huy';
+
+export interface ResearchProject {
+  id: string;
+  title: string;
+  authors: string[];
+  mainMembers: string[];
+  experts: string[];
+  budget: number;
+  progress: number; // 0-100
+  settlementStatus: SettlementStatus;
+  content: string;
+  level: 'NPSC' | 'NPC' | 'EVN';
+  year: number;
+  status: ProjectStatus;
+  attachmentUrl?: string;
+}
+
 export interface SimilarityInfo {
   score: number; // 0-100
   status: 'new' | 'similar' | 'duplicate';
