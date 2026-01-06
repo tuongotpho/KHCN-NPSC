@@ -152,7 +152,7 @@ const ListPage: React.FC<ListPageProps> = ({ initiatives, activeTheme, user, onV
       <header className="flex flex-col gap-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            <h2 className="text-4xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Kho sáng kiến</h2>
+            <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Kho sáng kiến</h2>
             <div className="flex bg-white dark:bg-slate-900 p-1.5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 ml-4">
               <button 
                 onClick={() => setViewMode('grid')}

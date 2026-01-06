@@ -2,7 +2,9 @@
 import React, { useState, useMemo } from 'react';
 import { 
   Zap, Award, Building2, Activity, Calendar, Briefcase, 
-  BarChart3, FileText, Loader2, Sparkles, Bot, ChevronLeft, ChevronRight 
+  BarChart3, FileText, Loader2, Sparkles, Bot, ChevronLeft, ChevronRight,
+  Trophy, Medal, Star, Users, Info, UserCheck, Landmark,
+  ShieldCheck, Flame, TrendingUp, Gem, CheckCircle2, Calculator
 } from 'lucide-react';
 import { Initiative, InitiativeLevel } from '../types';
 import { getAIInstance, AI_SYSTEM_INSTRUCTION } from '../services/aiService';
@@ -15,8 +17,17 @@ interface StatsPageProps {
 
 const ITEMS_PER_PAGE = 5;
 
+// Hệ số điểm theo cấp độ sáng kiến
+const LEVEL_WEIGHTS: Record<InitiativeLevel, number> = {
+  'HLH': 1,
+  'NPSC': 2,
+  'NPC': 3,
+  'EVN': 4
+};
+
 const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewItem }) => {
-  const [statsView, setStatsView] = useState<'level' | 'year' | 'unit' | 'field'>('level');
+  const [statsView, setStatsView] = useState<'level' | 'year' | 'unit' | 'field' | 'author'>('level');
+  const [hallOfFameTab, setHallOfFameTab] = useState<'author' | 'unit'>('author');
   const [statsDetailValue, setStatsDetailValue] = useState<string | number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [aiInsight, setAiInsight] = useState<string>('');
@@ -24,28 +35,87 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
 
   const dashboardStats = useMemo(() => {
     const total = initiatives.length;
-    const currentYear = new Date().getFullYear();
-    const currentYearCount = initiatives.filter(i => i.year === currentYear).length;
     
     const dist = (key: keyof Initiative) => initiatives.reduce((acc, curr) => {
       const val = curr[key];
       if (Array.isArray(val)) {
-        val.forEach(v => { acc[v] = (acc[v] || 0) + 1; });
+        val.forEach(v => { 
+          const cleanVal = typeof v === 'string' ? v.trim() : v;
+          acc[cleanVal] = (acc[cleanVal] || 0) + 1; 
+        });
       } else if (val) {
-        acc[val as string] = (acc[val as string] || 0) + 1;
+        const cleanVal = typeof val === 'string' ? val.trim() : val;
+        acc[cleanVal as string] = (acc[cleanVal as string] || 0) + 1;
       }
       return acc;
     }, {} as Record<string, number>);
 
+    // Tính điểm & Metadata cho Tác giả & Đơn vị
+    const authorScores: Record<string, { score: number, count: number, years: Set<number>, hasEVN: boolean }> = {};
+    const unitScores: Record<string, { score: number, count: number, years: Set<number>, hasEVN: boolean }> = {};
+
+    initiatives.forEach(item => {
+      const maxWeight = item.level && item.level.length > 0 
+        ? Math.max(...item.level.map(l => LEVEL_WEIGHTS[l as InitiativeLevel] || 0))
+        : 1;
+      
+      const isEVN = item.level?.includes('EVN');
+
+      // Tác giả
+      if (item.authors && Array.isArray(item.authors)) {
+        item.authors.forEach(author => {
+          const name = author.trim();
+          if (!authorScores[name]) authorScores[name] = { score: 0, count: 0, years: new Set(), hasEVN: false };
+          authorScores[name].score += maxWeight;
+          authorScores[name].count += 1;
+          authorScores[name].years.add(item.year);
+          if (isEVN) authorScores[name].hasEVN = true;
+        });
+      }
+
+      // Đơn vị
+      const units = Array.isArray(item.unit) ? item.unit : (item.unit ? [item.unit] : []);
+      units.forEach(u => {
+        const unitName = u.trim();
+        if (!unitScores[unitName]) unitScores[unitName] = { score: 0, count: 0, years: new Set(), hasEVN: false };
+        unitScores[unitName].score += maxWeight;
+        unitScores[unitName].count += 1;
+        unitScores[unitName].years.add(item.year);
+        if (isEVN) unitScores[unitName].hasEVN = true;
+      });
+    });
+
     return { 
       total, 
-      currentYearCount, 
       levelDist: dist('level'), 
       yearDist: dist('year'), 
       unitDist: dist('unit'), 
-      fieldDist: dist('field') 
+      fieldDist: dist('field'),
+      authorDist: dist('authors'),
+      authorScores,
+      unitScores
     };
   }, [initiatives]);
+
+  const topAuthors = useMemo(() => {
+    return Object.entries(dashboardStats.authorScores)
+      .sort((a, b) => b[1].score - a[1].score)
+      .slice(0, 10);
+  }, [dashboardStats.authorScores]);
+
+  const topUnits = useMemo(() => {
+    return Object.entries(dashboardStats.unitScores)
+      .sort((a, b) => b[1].score - a[1].score)
+      .slice(0, 10);
+  }, [dashboardStats.unitScores]);
+
+  const getBadges = (data: { score: number, count: number, years: Set<number>, hasEVN: boolean }) => {
+    const badges = [];
+    if (data.hasEVN) badges.push({ icon: <Gem size={10}/>, label: 'Đẳng cấp EVN', color: 'text-rose-400 bg-rose-500/10' });
+    if (data.count >= 5) badges.push({ icon: <Flame size={10}/>, label: 'Cây sáng kiến', color: 'text-orange-400 bg-orange-500/10' });
+    if (data.years.size >= 3) badges.push({ icon: <ShieldCheck size={10}/>, label: 'Bền bỉ', color: 'text-blue-400 bg-blue-500/10' });
+    return badges;
+  };
 
   const drillDownList = useMemo(() => {
     if (!statsDetailValue) return [];
@@ -53,9 +123,11 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
       if (statsView === 'level') return i.level?.includes(statsDetailValue as InitiativeLevel);
       if (statsView === 'year') return i.year === Number(statsDetailValue);
       if (statsView === 'unit') {
-        return Array.isArray(i.unit) ? i.unit.includes(statsDetailValue as string) : i.unit === statsDetailValue;
+        const units = Array.isArray(i.unit) ? i.unit : (i.unit ? [i.unit] : []);
+        return units.includes(statsDetailValue as string);
       }
       if (statsView === 'field') return (i.field || 'Khác') === statsDetailValue;
+      if (statsView === 'author') return i.authors?.some(a => a.trim() === statsDetailValue);
       return false;
     });
   }, [initiatives, statsView, statsDetailValue]);
@@ -68,7 +140,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
       const ai = getAIInstance();
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `Phân tích dữ liệu thống kê sau và đưa ra nhận xét chiến lược: ${JSON.stringify(dashboardStats)}`,
+        contents: `Phân tích dữ liệu: ${JSON.stringify(dashboardStats)}. Hãy dự báo xu hướng và gợi ý định hướng sáng kiến cho năm tới để nâng cao hiệu quả sản xuất kinh doanh.`,
         config: { systemInstruction: AI_SYSTEM_INSTRUCTION }
       });
       setAiInsight(response.text || "");
@@ -79,41 +151,186 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
     }
   };
 
+  const getRankBadge = (index: number) => {
+    const baseClass = "absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[9px] font-black uppercase flex items-center gap-1 shadow-xl z-20";
+    switch(index) {
+      case 0: return <div className={`${baseClass} bg-amber-400 text-amber-950 border-2 border-amber-200`}><Trophy size={12}/> Hạng 1</div>;
+      case 1: return <div className={`${baseClass} bg-slate-300 text-slate-900 border-2 border-slate-100`}><Medal size={12}/> Hạng 2</div>;
+      case 2: return <div className={`${baseClass} bg-orange-700 text-orange-100 border-2 border-orange-500`}><Medal size={12}/> Hạng 3</div>;
+      default: return <div className={`${baseClass} bg-slate-800 text-slate-400 border border-slate-700`}><Star size={10}/> Top {index + 1}</div>;
+    }
+  };
+
   return (
-    <div className="space-y-10 animate-slide">
+    <div className="space-y-10 animate-slide pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <h2 className="text-4xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Thống kê tổng thể</h2>
-        <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-          <Activity size={14}/> Theo dõi dữ liệu thực
+        <div>
+          <h2 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Trung tâm Phân tích</h2>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Nền tảng vinh danh & Quản trị tri thức thông minh</p>
+        </div>
+        <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest bg-white dark:bg-slate-900 px-4 py-2 rounded-full border border-slate-100 dark:border-slate-800 shadow-sm">
+          <TrendingUp size={14} className="text-emerald-500 animate-bounce"/> +12% Hiệu suất năm nay
         </div>
       </div>
       
-      {/* Top 4 Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
           { label: 'Tổng sáng kiến', value: dashboardStats.total, icon: Zap, color: 'blue' },
           { label: 'Cấp EVN', value: dashboardStats.levelDist['EVN'] || 0, icon: Award, color: 'rose' },
           { label: 'Cấp NPC', value: dashboardStats.levelDist['NPC'] || 0, icon: Building2, color: 'orange' },
-          { label: 'Năm hiện tại', value: dashboardStats.currentYearCount, icon: Activity, color: 'emerald' }
+          { label: 'Đơn vị tham gia', value: Object.keys(dashboardStats.unitScores).length, icon: Landmark, color: 'amber' }
         ].map((stat, i) => (
-          <div key={i} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm text-center group hover:shadow-lg transition-all">
-            <div className={`p-4 bg-${stat.color}-50 dark:bg-slate-800 text-${stat.color}-600 dark:text-white rounded-2xl mb-4 mx-auto w-fit group-hover:scale-110 transition-transform`}>
-              <stat.icon size={24} />
+          <div key={i} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm text-center group hover:shadow-lg transition-all border-b-4 border-b-transparent hover:border-b-orange-500">
+            <div className={`p-4 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-white rounded-2xl mb-4 mx-auto w-fit group-hover:scale-110 transition-transform shadow-inner`}>
+              <stat.icon size={24} className={stat.color === 'amber' ? 'text-amber-500' : ''} />
             </div>
-            <p className="text-slate-400 dark:text-slate-500 font-bold uppercase text-[10px] mb-1">{stat.label}</p>
+            <p className="text-slate-400 dark:text-slate-500 font-bold uppercase text-[10px] mb-1 tracking-widest">{stat.label}</p>
             <h4 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter">{stat.value}</h4>
           </div>
         ))}
       </div>
 
-      {/* Main Analysis Section */}
-      <div className="bg-white dark:bg-slate-900 p-6 lg:p-10 rounded-[3.5rem] border border-slate-100 dark:border-slate-800 shadow-sm space-y-8">
-        <div className="flex flex-wrap items-center gap-3 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-[2rem] border border-slate-100 dark:border-slate-700 w-fit">
+      {/* Bảng Vàng Vinh Danh - Nâng cấp với Badges & Chú giải cách tính điểm */}
+      <div className="bg-slate-950 rounded-[4rem] p-10 lg:p-14 text-white relative overflow-hidden shadow-2xl border border-white/5">
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-amber-500/5 rounded-full blur-[120px] -mr-64 -mt-64"></div>
+        
+        <div className="relative z-10 space-y-12">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
+            <div className="flex items-center gap-5">
+               <div className="p-5 bg-amber-500/20 rounded-3xl text-amber-500 border border-amber-500/20 shadow-2xl shadow-amber-500/10 animate-pulse"><Trophy size={42}/></div>
+               <div>
+                  <h3 className="text-4xl font-black uppercase tracking-tighter mb-1 flex items-center gap-3">Bảng Vàng Danh Dự <Gem className="text-amber-500" size={24}/></h3>
+                  <div className="flex gap-4">
+                    <button onClick={() => setHallOfFameTab('author')} className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center gap-2 ${hallOfFameTab === 'author' ? 'text-amber-500' : 'text-slate-600 hover:text-slate-400'}`}>
+                      <UserCheck size={14}/> Cá nhân xuất sắc
+                    </button>
+                    <button onClick={() => setHallOfFameTab('unit')} className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center gap-2 ${hallOfFameTab === 'unit' ? 'text-amber-500' : 'text-slate-600 hover:text-slate-400'}`}>
+                      <Landmark size={14}/> Tập thể dẫn đầu
+                    </button>
+                  </div>
+               </div>
+            </div>
+
+            <div className="bg-white/5 p-1.5 rounded-2xl border border-white/10 flex shadow-2xl">
+               <button onClick={() => setHallOfFameTab('author')} className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${hallOfFameTab === 'author' ? 'bg-amber-500 text-slate-950 shadow-lg' : 'text-slate-400 hover:text-white'}`}>Tác giả</button>
+               <button onClick={() => setHallOfFameTab('unit')} className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${hallOfFameTab === 'unit' ? 'bg-amber-500 text-slate-950 shadow-lg' : 'text-slate-400 hover:text-white'}`}>Đơn vị</button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8 min-h-[300px]">
+            {(hallOfFameTab === 'author' ? topAuthors : topUnits).map(([name, data], idx) => {
+               const badges = getBadges(data);
+               return (
+                  <button 
+                    key={name}
+                    onClick={() => { 
+                      setStatsView(hallOfFameTab === 'author' ? 'author' : 'unit'); 
+                      setStatsDetailValue(name); 
+                      setCurrentPage(1); 
+                    }}
+                    className={`p-8 pt-14 rounded-[3.5rem] transition-all flex flex-col items-center justify-between text-center group relative overflow-visible ${statsDetailValue === name ? 'bg-amber-500 text-slate-900 scale-105 shadow-2xl shadow-amber-500/30' : 'bg-white/5 hover:bg-white/10 border border-white/5'}`}
+                  >
+                    {getRankBadge(idx)}
+                    
+                    <div className="flex-1 flex flex-col items-center justify-center space-y-4 w-full">
+                      <h4 className={`text-base font-black uppercase leading-tight tracking-tight break-words w-full px-2 ${statsDetailValue === name ? 'text-slate-950' : 'text-white'}`}>
+                        {name}
+                      </h4>
+
+                      {/* Badges Display */}
+                      <div className="flex flex-wrap justify-center gap-1.5">
+                         {badges.map((b, i) => (
+                           <div key={i} className={`flex items-center gap-1 px-2 py-0.5 rounded-full border border-white/10 ${statsDetailValue === name ? 'bg-slate-950/20 text-slate-950 border-slate-950/20' : b.color}`} title={b.label}>
+                             {b.icon}
+                             <span className="text-[7px] font-black uppercase tracking-tighter">{b.label}</span>
+                           </div>
+                         ))}
+                      </div>
+
+                      <div className="space-y-1 mt-2">
+                        <div className="flex items-center gap-2 justify-center">
+                           <Zap size={14} className={statsDetailValue === name ? 'text-slate-950' : 'text-amber-500'} />
+                           <span className={`text-3xl font-black tracking-tighter ${statsDetailValue === name ? 'text-slate-950' : 'text-white'}`}>{data.score}</span>
+                           <span className={`text-[10px] font-black uppercase opacity-60`}>Điểm</span>
+                        </div>
+                        <p className={`text-[9px] font-black uppercase ${statsDetailValue === name ? 'text-slate-800' : 'text-slate-500'}`}>({data.count} sáng kiến)</p>
+                      </div>
+                    </div>
+                  </button>
+               );
+            })}
+          </div>
+
+          {/* Chú giải cách tính điểm & Danh hiệu */}
+          <div className="pt-10 border-t border-white/10 space-y-10">
+            {/* 1. Cách tính điểm */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 px-2">
+                <Calculator size={18} className="text-amber-500"/>
+                <h5 className="text-[11px] font-black uppercase tracking-[0.2em] text-white">Cơ chế tính điểm tích lũy</h5>
+                <div className="flex-1 h-px bg-white/5"></div>
+                <p className="text-[9px] font-bold text-slate-500 italic">Áp dụng cho cả {hallOfFameTab === 'author' ? 'Tác giả' : 'Đơn vị'}</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                  { label: 'HLH', pts: 1, desc: 'Hợp lý hóa', color: 'border-slate-500/20 bg-slate-500/5' },
+                  { label: 'NPSC', pts: 2, desc: 'Cấp Công ty', color: 'border-red-500/20 bg-red-500/5' },
+                  { label: 'NPC', pts: 3, desc: 'Cấp Tổng công ty', color: 'border-orange-500/20 bg-orange-500/5' },
+                  { label: 'EVN', pts: 4, desc: 'Cấp Tập đoàn', color: 'border-rose-500/20 bg-rose-500/5' }
+                ].map(rule => (
+                  <div key={rule.label} className={`p-4 rounded-2xl border ${rule.color} flex flex-col items-center gap-1 group hover:border-amber-500/50 transition-all`}>
+                    <span className="text-[10px] font-black text-white mb-1">{rule.label}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl font-black text-amber-500">{rule.pts}</span>
+                      <span className="text-[9px] font-black text-slate-500 uppercase">Điểm</span>
+                    </div>
+                    <p className="text-[8px] font-bold text-slate-400 mt-1 uppercase tracking-widest">{rule.desc}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="bg-white/5 rounded-2xl p-4 border border-white/5 flex items-start gap-3">
+                 <CheckCircle2 size={16} className="text-emerald-500 shrink-0 mt-0.5" />
+                 <p className="text-[10px] text-slate-400 font-medium leading-relaxed">
+                   <strong className="text-white">Quy tắc tối ưu:</strong> Nếu một sáng kiến đạt nhiều cấp công nhận (ví dụ đạt cả cấp NPC và NPSC), hệ thống sẽ <span className="text-amber-500">chỉ tính điểm cho cấp cao nhất đạt được</span> để đảm bảo tính công bằng và khuyến khích nâng cao chất lượng hồ sơ.
+                 </p>
+              </div>
+            </div>
+
+            {/* 2. Hệ thống Danh hiệu */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 px-2">
+                <Medal size={18} className="text-amber-500"/>
+                <h5 className="text-[11px] font-black uppercase tracking-[0.2em] text-white">Hệ thống danh hiệu vinh danh</h5>
+                <div className="flex-1 h-px bg-white/5"></div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {[
+                  { label: 'Cây sáng kiến', icon: <Flame size={16}/>, desc: 'Dành cho đối tượng có từ 5 sáng kiến trở lên trong kho dữ liệu.', color: 'text-orange-400' },
+                  { label: 'Bền bỉ', icon: <ShieldCheck size={16}/>, desc: 'Ghi nhận sự đóng góp liên tục trong ít nhất 3 năm tài chính khác nhau.', color: 'text-blue-400' },
+                  { label: 'Đẳng cấp EVN', icon: <Gem size={16}/>, desc: 'Sở hữu ít nhất một sáng kiến được công nhận cấp Tập đoàn.', color: 'text-rose-400' }
+                ].map(rule => (
+                  <div key={rule.label} className="flex gap-4 p-5 bg-white/5 rounded-3xl border border-white/5 hover:bg-white/10 transition-all group">
+                    <div className={`p-3 rounded-2xl bg-black/40 ${rule.color} group-hover:scale-110 transition-transform`}>{rule.icon}</div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-black text-white uppercase tracking-wider">{rule.label}</span>
+                      <p className="text-[10px] text-slate-500 leading-relaxed font-medium">{rule.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-slate-900 p-6 lg:p-12 rounded-[3.5rem] border border-slate-100 dark:border-slate-800 shadow-sm space-y-10">
+        <div className="flex flex-wrap items-center gap-3 bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-[2rem] border border-slate-100 dark:border-slate-700 w-fit">
           {[
             { id: 'level', label: 'Cấp độ', icon: Award },
             { id: 'year', label: 'Năm', icon: Calendar },
             { id: 'unit', label: 'Đơn vị', icon: Building2 },
-            { id: 'field', label: 'Lĩnh vực', icon: Briefcase }
+            { id: 'field', label: 'Lĩnh vực', icon: Briefcase },
+            { id: 'author', label: 'Tác giả', icon: Users }
           ].map(v => (
             <button 
               key={v.id} 
@@ -126,16 +343,16 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-          {/* Distribution Column */}
           <div className="lg:col-span-5 space-y-4">
             <div className="flex items-center justify-between px-2">
               <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Phân bổ dữ liệu</p>
             </div>
-            <div className="space-y-2 max-h-[500px] overflow-y-auto pr-3 custom-scrollbar">
+            <div className="space-y-2 max-h-[600px] overflow-y-auto pr-3 custom-scrollbar">
               {Object.entries(
                 statsView === 'level' ? dashboardStats.levelDist :
                 statsView === 'year' ? dashboardStats.yearDist :
                 statsView === 'unit' ? dashboardStats.unitDist :
+                statsView === 'author' ? dashboardStats.authorDist :
                 dashboardStats.fieldDist
               ).sort((a, b) => (b[1] as number) - (a[1] as number)).map(([key, count]) => {
                 const percentage = Math.round(((count as number) / (dashboardStats.total || 1)) * 100);
@@ -158,16 +375,15 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
             </div>
           </div>
 
-          {/* List Column */}
           <div className="lg:col-span-7 bg-slate-50/50 dark:bg-slate-800/20 rounded-[3rem] border border-slate-100 dark:border-slate-800 p-8 flex flex-col min-h-[500px] shadow-inner">
             {statsDetailValue ? (
               <>
                 <div className="flex items-center justify-between mb-8">
                   <div className="flex items-center gap-3">
                     <div className={`${activeTheme.primary} p-3 rounded-2xl text-white shadow-lg`}><FileText size={20}/></div>
-                    <h4 className="font-black text-slate-900 dark:text-white uppercase tracking-tighter">Danh sách {statsDetailValue}</h4>
+                    <h4 className="font-black text-slate-900 dark:text-white uppercase tracking-tighter max-w-[300px] truncate">{statsDetailValue}</h4>
                   </div>
-                  <span className={`text-[10px] font-black ${activeTheme.text} px-4 py-2 bg-white dark:bg-slate-800 rounded-full uppercase border dark:border-slate-700`}>{drillDownList.length} Mục</span>
+                  <span className={`text-[10px] font-black ${activeTheme.text} px-4 py-2 bg-white dark:bg-slate-800 rounded-full uppercase border dark:border-slate-700 shadow-sm`}>{drillDownList.length} Mục</span>
                 </div>
                 <div className="space-y-4 flex-1 overflow-y-auto custom-scrollbar pr-2">
                   {paginatedList.map(item => (
@@ -178,40 +394,47 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
                     >
                       <div className="flex justify-between items-start mb-3">
                         <span className={`text-[10px] font-black ${activeTheme.text} uppercase`}>Năm {item.year}</span>
-                        <span className="text-[9px] font-bold text-slate-400 uppercase">{Array.isArray(item.unit) ? item.unit.join(', ') : item.unit}</span>
+                        <div className="flex flex-wrap gap-1">
+                          {item.level?.map(lvl => (
+                            <span key={lvl} className="bg-slate-100 dark:bg-slate-800 text-slate-500 text-[8px] font-black px-2 py-0.5 rounded-md">{lvl}</span>
+                          ))}
+                        </div>
                       </div>
-                      <p className="text-base font-bold text-slate-800 dark:text-white leading-tight uppercase group-hover:text-orange-600 transition-colors">{item.title}</p>
+                      <p className="text-base font-bold text-slate-800 dark:text-white leading-tight uppercase group-hover:text-orange-600 transition-colors line-clamp-2">{item.title}</p>
+                      <div className="mt-4 flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                         <span>{Array.isArray(item.unit) ? item.unit[0] : item.unit}</span>
+                         <span className="flex items-center gap-1"><Users size={10}/> {item.authors?.length} tác giả</span>
+                      </div>
                     </div>
                   ))}
                 </div>
                 {drillDownList.length > ITEMS_PER_PAGE && (
                   <div className="flex justify-center gap-2 mt-6">
-                    <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="p-2 disabled:opacity-30"><ChevronLeft size={18}/></button>
-                    <span className="text-xs font-black flex items-center">{currentPage} / {Math.ceil(drillDownList.length / ITEMS_PER_PAGE)}</span>
-                    <button disabled={currentPage === Math.ceil(drillDownList.length / ITEMS_PER_PAGE)} onClick={() => setCurrentPage(p => p + 1)} className="p-2 disabled:opacity-30"><ChevronRight size={18}/></button>
+                    <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="p-2 disabled:opacity-30 hover:bg-white dark:hover:bg-slate-800 rounded-lg transition-colors"><ChevronLeft size={18}/></button>
+                    <span className="text-xs font-black flex items-center px-4">{currentPage} / {Math.ceil(drillDownList.length / ITEMS_PER_PAGE)}</span>
+                    <button disabled={currentPage === Math.ceil(drillDownList.length / ITEMS_PER_PAGE)} onClick={() => setCurrentPage(p => p + 1)} className="p-2 disabled:opacity-30 hover:bg-white dark:hover:bg-slate-800 rounded-lg transition-colors"><ChevronRight size={18}/></button>
                   </div>
                 )}
               </>
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-10 opacity-50">
-                <div className="bg-white dark:bg-slate-800 p-8 rounded-full text-slate-200 dark:text-slate-700 mb-6"><BarChart3 size={64} /></div>
-                <p className="text-slate-400 font-black text-xs uppercase tracking-widest">Chọn danh mục để xem chi tiết</p>
+                <div className="bg-white dark:bg-slate-800 p-10 rounded-full text-slate-200 dark:text-slate-700 mb-6 shadow-inner"><BarChart3 size={64} /></div>
+                <p className="text-slate-400 font-black text-xs uppercase tracking-[0.3em]">Chọn danh mục bên trái hoặc xem Bảng Vàng</p>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* AI Strategist Section */}
-      <div className="bg-slate-900 p-12 rounded-[4rem] text-white shadow-2xl relative overflow-hidden">
+      <div className="bg-slate-900 p-12 lg:p-16 rounded-[4rem] text-white shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 right-0 p-16 opacity-5 rotate-12 scale-150"><Sparkles size={150} /></div>
         <div className="relative z-10">
           <div className="flex flex-col md:flex-row items-center justify-between mb-10 gap-6">
             <div className="flex items-center gap-5">
-              <div className={`${activeTheme.primary} p-4 rounded-3xl shadow-2xl animate-pulse`}><Bot size={32} /></div>
+              <div className={`${activeTheme.primary} p-5 rounded-3xl shadow-2xl animate-pulse`}><Bot size={36} /></div>
               <div>
-                <h3 className="text-3xl font-black uppercase tracking-tighter">AI Phân tích Chiến lược</h3>
-                <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Cố vấn chuyên sâu từ dữ liệu sáng kiến</p>
+                <h3 className="text-3xl font-black uppercase tracking-tighter">AI Dự báo Xu hướng</h3>
+                <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Cố vấn chiến lược dựa trên lịch sử đóng góp</p>
               </div>
             </div>
             <button 
@@ -219,19 +442,19 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
               disabled={isGenerating} 
               className="px-10 py-5 bg-white text-slate-900 rounded-[2rem] font-black flex items-center gap-3 hover:bg-orange-50 transition-all shadow-2xl active:scale-95 disabled:opacity-50 text-xs uppercase tracking-widest"
             >
-              {isGenerating ? <Loader2 size={20} className="animate-spin" /> : <Activity size={20} />} 
-              TỔNG HỢP DỮ LIỆU
+              {isGenerating ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />} 
+              XEM GỢI Ý CHIẾN LƯỢC
             </button>
           </div>
-          <div className="bg-white/5 backdrop-blur-xl rounded-[3rem] border border-white/10 p-12 min-h-[300px] flex items-center justify-center">
+          <div className="bg-white/5 backdrop-blur-xl rounded-[3rem] border border-white/10 p-12 min-h-[350px] flex items-center justify-center">
             {aiInsight ? (
-              <div className="text-xl text-slate-100 leading-relaxed font-medium whitespace-pre-wrap w-full animate-slide">
+              <div className="text-xl text-slate-100 leading-relaxed font-medium whitespace-pre-wrap w-full animate-slide prose dark:prose-invert max-w-none">
                 {aiInsight}
               </div>
             ) : (
               <div className="text-center space-y-6 opacity-40">
-                <Sparkles size={48} className="mx-auto" />
-                <p className="text-slate-400 font-black uppercase text-[10px] tracking-[0.3em]">AI sẵn sàng xử lý {initiatives.length} hồ sơ</p>
+                <Bot size={48} className="mx-auto" />
+                <p className="text-slate-400 font-black uppercase text-[10px] tracking-[0.3em]">AI sẵn sàng phân tích dữ liệu để định hướng cho năm {new Date().getFullYear() + 1}</p>
               </div>
             )}
           </div>

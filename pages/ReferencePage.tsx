@@ -202,7 +202,7 @@ const ReferencePage: React.FC<ReferencePageProps> = ({ activeTheme, user }) => {
     <div className="space-y-8 animate-slide">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-4xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Kho tài liệu</h2>
+          <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Kho tài liệu</h2>
           <div className="flex items-center gap-2 mt-1">
              <Globe size={12} className="text-slate-400" />
              <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Truy cập công khai • Tải về tự do</p>

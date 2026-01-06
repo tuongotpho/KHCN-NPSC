@@ -213,7 +213,7 @@ const TreeMapPage: React.FC<TreeMapPageProps> = ({ initiatives, activeTheme, use
   return (
     <div className="relative h-[85vh] w-full overflow-hidden flex flex-col">
       <div className="flex justify-between items-center mb-4 shrink-0">
-         <h2 className="text-4xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Bản đồ nhiệt</h2>
+         <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Bản đồ nhiệt</h2>
          <p className="text-slate-400 text-xs font-bold uppercase tracking-widest hidden lg:block">Click vào ô vuông để xem danh sách</p>
       </div>
 

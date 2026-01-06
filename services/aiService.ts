@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { InitiativeLevel } from "../types";
 
@@ -54,7 +55,8 @@ export const extractInitiativesFromPDF = async (base64Data: string, mimeType: st
   
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      // Use gemini-3-pro-preview for complex reasoning and structured data extraction tasks
+      model: 'gemini-3-pro-preview',
       contents: {
         parts: [
           {
