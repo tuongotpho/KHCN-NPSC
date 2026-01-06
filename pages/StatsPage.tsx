@@ -4,7 +4,7 @@ import {
   Zap, Award, Building2, Activity, Calendar, Briefcase, 
   BarChart3, FileText, Loader2, Sparkles, Bot, ChevronLeft, ChevronRight,
   Trophy, Medal, Star, Users, Info, UserCheck, Landmark,
-  ShieldCheck, Flame, TrendingUp, Gem, CheckCircle2, Calculator
+  ShieldCheck, Flame, TrendingUp, Gem, CheckCircle2, Calculator, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { Initiative, InitiativeLevel } from '../types';
 import { getAIInstance, AI_SYSTEM_INSTRUCTION } from '../services/aiService';
@@ -28,6 +28,7 @@ const LEVEL_WEIGHTS: Record<InitiativeLevel, number> = {
 const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewItem }) => {
   const [statsView, setStatsView] = useState<'level' | 'year' | 'unit' | 'field' | 'author'>('level');
   const [hallOfFameTab, setHallOfFameTab] = useState<'author' | 'unit'>('author');
+  const [isHofExpanded, setIsHofExpanded] = useState(false);
   const [statsDetailValue, setStatsDetailValue] = useState<string | number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [aiInsight, setAiInsight] = useState<string>('');
@@ -97,17 +98,21 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
     };
   }, [initiatives]);
 
-  const topAuthors = useMemo(() => {
-    return Object.entries(dashboardStats.authorScores)
-      .sort((a, b) => b[1].score - a[1].score)
-      .slice(0, 10);
+  // Sắp xếp toàn bộ danh sách
+  const allAuthorsSorted = useMemo(() => {
+    return Object.entries(dashboardStats.authorScores).sort((a, b) => b[1].score - a[1].score);
   }, [dashboardStats.authorScores]);
 
-  const topUnits = useMemo(() => {
-    return Object.entries(dashboardStats.unitScores)
-      .sort((a, b) => b[1].score - a[1].score)
-      .slice(0, 10);
+  const allUnitsSorted = useMemo(() => {
+    return Object.entries(dashboardStats.unitScores).sort((a, b) => b[1].score - a[1].score);
   }, [dashboardStats.unitScores]);
+
+  // Danh sách hiển thị dựa trên tab và trạng thái mở rộng
+  const displayedHofItems = useMemo(() => {
+    const baseList = hallOfFameTab === 'author' ? allAuthorsSorted : allUnitsSorted;
+    const limit = isHofExpanded ? 24 : 10;
+    return baseList.slice(0, limit);
+  }, [hallOfFameTab, isHofExpanded, allAuthorsSorted, allUnitsSorted]);
 
   const getBadges = (data: { score: number, count: number, years: Set<number>, hasEVN: boolean }) => {
     const badges = [];
@@ -152,12 +157,12 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
   };
 
   const getRankBadge = (index: number) => {
-    const baseClass = "absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[9px] font-black uppercase flex items-center gap-1 shadow-xl z-20";
+    const baseClass = "absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[9px] font-black uppercase flex items-center gap-1 shadow-xl z-20 transition-all";
     switch(index) {
-      case 0: return <div className={`${baseClass} bg-amber-400 text-amber-950 border-2 border-amber-200`}><Trophy size={12}/> Hạng 1</div>;
-      case 1: return <div className={`${baseClass} bg-slate-300 text-slate-900 border-2 border-slate-100`}><Medal size={12}/> Hạng 2</div>;
-      case 2: return <div className={`${baseClass} bg-orange-700 text-orange-100 border-2 border-orange-500`}><Medal size={12}/> Hạng 3</div>;
-      default: return <div className={`${baseClass} bg-slate-800 text-slate-400 border border-slate-700`}><Star size={10}/> Top {index + 1}</div>;
+      case 0: return <div className={`${baseClass} bg-amber-400 text-amber-950 border-2 border-amber-200 group-hover:scale-110`}><Trophy size={12}/> Hạng 1</div>;
+      case 1: return <div className={`${baseClass} bg-slate-300 text-slate-900 border-2 border-slate-100 group-hover:scale-110`}><Medal size={12}/> Hạng 2</div>;
+      case 2: return <div className={`${baseClass} bg-orange-700 text-orange-100 border-2 border-orange-500 group-hover:scale-110`}><Medal size={12}/> Hạng 3</div>;
+      default: return <div className={`${baseClass} bg-slate-800 text-slate-400 border border-slate-700 group-hover:scale-110`}><Star size={10}/> Top {index + 1}</div>;
     }
   };
 
@@ -190,35 +195,46 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
         ))}
       </div>
 
-      {/* Bảng Vàng Vinh Danh - Nâng cấp với Badges & Chú giải cách tính điểm */}
+      {/* Bảng Vàng Vinh Danh - Hỗ trợ mở rộng danh sách */}
       <div className="bg-slate-950 rounded-[4rem] p-10 lg:p-14 text-white relative overflow-hidden shadow-2xl border border-white/5">
         <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-amber-500/5 rounded-full blur-[120px] -mr-64 -mt-64"></div>
         
         <div className="relative z-10 space-y-12">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
             <div className="flex items-center gap-5">
                <div className="p-5 bg-amber-500/20 rounded-3xl text-amber-500 border border-amber-500/20 shadow-2xl shadow-amber-500/10 animate-pulse"><Trophy size={42}/></div>
                <div>
                   <h3 className="text-4xl font-black uppercase tracking-tighter mb-1 flex items-center gap-3">Bảng Vàng Danh Dự <Gem className="text-amber-500" size={24}/></h3>
                   <div className="flex gap-4">
-                    <button onClick={() => setHallOfFameTab('author')} className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center gap-2 ${hallOfFameTab === 'author' ? 'text-amber-500' : 'text-slate-600 hover:text-slate-400'}`}>
-                      <UserCheck size={14}/> Cá nhân xuất sắc
+                    <button onClick={() => { setHallOfFameTab('author'); setIsHofExpanded(false); }} className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center gap-2 ${hallOfFameTab === 'author' ? 'text-amber-500' : 'text-slate-600 hover:text-slate-400'}`}>
+                      <UserCheck size={14}/> Kiện tướng cá nhân
                     </button>
-                    <button onClick={() => setHallOfFameTab('unit')} className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center gap-2 ${hallOfFameTab === 'unit' ? 'text-amber-500' : 'text-slate-600 hover:text-slate-400'}`}>
-                      <Landmark size={14}/> Tập thể dẫn đầu
+                    <button onClick={() => { setHallOfFameTab('unit'); setIsHofExpanded(false); }} className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center gap-2 ${hallOfFameTab === 'unit' ? 'text-amber-500' : 'text-slate-600 hover:text-slate-400'}`}>
+                      <Landmark size={14}/> Tập thể tiên phong
                     </button>
                   </div>
                </div>
             </div>
 
-            <div className="bg-white/5 p-1.5 rounded-2xl border border-white/10 flex shadow-2xl">
-               <button onClick={() => setHallOfFameTab('author')} className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${hallOfFameTab === 'author' ? 'bg-amber-500 text-slate-950 shadow-lg' : 'text-slate-400 hover:text-white'}`}>Tác giả</button>
-               <button onClick={() => setHallOfFameTab('unit')} className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${hallOfFameTab === 'unit' ? 'bg-amber-500 text-slate-950 shadow-lg' : 'text-slate-400 hover:text-white'}`}>Đơn vị</button>
+            <div className="flex flex-wrap items-center gap-4">
+               {/* Toggle View Mode */}
+               <button 
+                onClick={() => setIsHofExpanded(!isHofExpanded)}
+                className={`flex items-center gap-3 px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${isHofExpanded ? 'bg-amber-500 text-slate-950 border-transparent shadow-2xl shadow-amber-500/20' : 'bg-white/5 text-slate-400 border-white/10 hover:border-amber-500/50'}`}
+               >
+                {isHofExpanded ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
+                {isHofExpanded ? 'Thu gọn Top 10' : `Xem toàn bộ (${hallOfFameTab === 'unit' ? '24' : '24'} vị trí)`}
+               </button>
+
+               <div className="bg-white/5 p-1.5 rounded-2xl border border-white/10 flex shadow-2xl">
+                  <button onClick={() => { setHallOfFameTab('author'); setIsHofExpanded(false); }} className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${hallOfFameTab === 'author' ? 'bg-amber-500 text-slate-950 shadow-lg' : 'text-slate-400 hover:text-white'}`}>Tác giả</button>
+                  <button onClick={() => { setHallOfFameTab('unit'); setIsHofExpanded(false); }} className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${hallOfFameTab === 'unit' ? 'bg-amber-500 text-slate-950 shadow-lg' : 'text-slate-400 hover:text-white'}`}>Đơn vị</button>
+               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8 min-h-[300px]">
-            {(hallOfFameTab === 'author' ? topAuthors : topUnits).map(([name, data], idx) => {
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8 min-h-[300px] transition-all duration-700">
+            {displayedHofItems.map(([name, data], idx) => {
                const badges = getBadges(data);
                return (
                   <button 
@@ -228,7 +244,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
                       setStatsDetailValue(name); 
                       setCurrentPage(1); 
                     }}
-                    className={`p-8 pt-14 rounded-[3.5rem] transition-all flex flex-col items-center justify-between text-center group relative overflow-visible ${statsDetailValue === name ? 'bg-amber-500 text-slate-900 scale-105 shadow-2xl shadow-amber-500/30' : 'bg-white/5 hover:bg-white/10 border border-white/5'}`}
+                    className={`p-8 pt-14 rounded-[3.5rem] transition-all flex flex-col items-center justify-between text-center group relative overflow-visible ${statsDetailValue === name ? 'bg-amber-500 text-slate-900 scale-105 shadow-2xl shadow-amber-500/30' : 'bg-white/5 hover:bg-white/10 border border-white/5'} ${isHofExpanded ? 'scale-95 hover:scale-100' : ''}`}
                   >
                     {getRankBadge(idx)}
                     
@@ -238,7 +254,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
                       </h4>
 
                       {/* Badges Display */}
-                      <div className="flex flex-wrap justify-center gap-1.5">
+                      <div className="flex flex-wrap justify-center gap-1.5 min-h-[20px]">
                          {badges.map((b, i) => (
                            <div key={i} className={`flex items-center gap-1 px-2 py-0.5 rounded-full border border-white/10 ${statsDetailValue === name ? 'bg-slate-950/20 text-slate-950 border-slate-950/20' : b.color}`} title={b.label}>
                              {b.icon}
