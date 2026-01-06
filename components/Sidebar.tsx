@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { LayoutDashboard, BarChart3, Bot, LogOut, BrainCircuit, Sun, Moon, Palette, Plus, FileUp, LogIn, Disc, LayoutGrid } from 'lucide-react';
+import { LayoutDashboard, BarChart3, Bot, LogOut, BrainCircuit, Sun, Moon, Palette, Plus, FileUp, LogIn, Disc, LayoutGrid, BookOpen } from 'lucide-react';
 import { InitiativeLevel } from '../types';
 
 interface SidebarProps {
@@ -56,6 +56,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           { id: 'bubble', label: 'Bản đồ bóng', icon: Disc },
           { id: 'treemap', label: 'Bản đồ nhiệt', icon: LayoutGrid },
           { id: 'stats', label: 'Thống kê', icon: BarChart3 },
+          { id: 'references', label: 'Tài liệu', icon: BookOpen },
           { id: 'chat', label: 'Trợ lý AI', icon: Bot },
         ].map(nav => (
           <button 

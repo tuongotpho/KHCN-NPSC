@@ -9,6 +9,7 @@ import ChatPage from "./pages/ChatPage";
 import StatsPage from "./pages/StatsPage";
 import BubblePage from "./pages/BubblePage";
 import TreeMapPage from "./pages/TreeMapPage";
+import ReferencePage from "./pages/ReferencePage";
 import ErrorBoundary from "./ErrorBoundary";
 import { Initiative, InitiativeLevel } from "./types";
 import { 
@@ -31,7 +32,7 @@ const LEVEL_COLORS: Record<InitiativeLevel, string> = {
 };
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'list' | 'stats' | 'chat' | 'bubble' | 'treemap'>('list');
+  const [activeTab, setActiveTab] = useState<'list' | 'stats' | 'chat' | 'bubble' | 'treemap' | 'references'>('list');
   const [theme, setTheme] = useState<keyof typeof THEMES>('red');
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
   const [user, setUser] = useState<any>(null);
@@ -279,6 +280,10 @@ const App: React.FC = () => {
             )}
 
             {activeTab === 'chat' && <ChatPage initiatives={initiatives} activeTheme={activeTheme} />}
+
+            {activeTab === 'references' && (
+              <ReferencePage activeTheme={activeTheme} user={user} />
+            )}
           </div>
         </main>
 

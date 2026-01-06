@@ -46,3 +46,15 @@ export interface AnalysisResult {
     similarToId?: string;
   };
 }
+
+export interface ReferenceDocument {
+  id: string;
+  title: string;
+  description: string;
+  fileName: string;
+  fileUrl: string;
+  fileType: string; // MIME type hoặc extension
+  size: number;
+  uploadDate: number;
+  uploadedBy: string;
+}

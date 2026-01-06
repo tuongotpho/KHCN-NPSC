@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Search, Award, Calendar, Lightbulb, Building2, ChevronDown, X, Check, FilterX } from 'lucide-react';
+import { Search, Award, Calendar, Lightbulb, Building2, ChevronDown, X, Check, FilterX, LayoutGrid, List as ListIcon, Eye, Edit2, Trash2, Users, Briefcase } from 'lucide-react';
 import { Initiative, InitiativeLevel } from '../types';
 import InitiativeCard from '../components/InitiativeCard';
 
@@ -15,12 +15,20 @@ interface ListPageProps {
 
 const ITEMS_PER_PAGE = 12;
 
+const LEVEL_COLORS: Record<InitiativeLevel, string> = {
+  'HLH': 'bg-slate-500',
+  'NPSC': 'bg-red-600',
+  'NPC': 'bg-orange-600',
+  'EVN': 'bg-rose-700'
+};
+
 const ListPage: React.FC<ListPageProps> = ({ initiatives, activeTheme, user, onView, onEdit, onDelete }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLevels, setSelectedLevels] = useState<InitiativeLevel[]>([]);
   const [selectedYears, setSelectedYears] = useState<number[]>([]);
   const [selectedUnits, setSelectedUnits] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   
   // Dropdown states
   const [isUnitDropdownOpen, setIsUnitDropdownOpen] = useState(false);
@@ -38,8 +46,6 @@ const ListPage: React.FC<ListPageProps> = ({ initiatives, activeTheme, user, onV
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // --- LOGIC LỌC ĐA CHIỀU (FACETED SEARCH) ---
-
   const getMatches = (item: Initiative, levels: InitiativeLevel[], years: number[], units: string[]) => {
     const unitArray = Array.isArray(item.unit) ? item.unit : (item.unit ? [item.unit] : []);
     const matchesLevel = levels.length === 0 || (item.level && item.level.some(l => levels.includes(l as InitiativeLevel)));
@@ -48,15 +54,11 @@ const ListPage: React.FC<ListPageProps> = ({ initiatives, activeTheme, user, onV
     return { matchesLevel, matchesYear, matchesUnit };
   };
 
-  // 1. Tính toán số lượng sáng kiến của mỗi đơn vị dựa trên các bộ lọc Cấp và Năm hiện tại
   const unitCountsMap = useMemo(() => {
     const counts: Record<string, number> = {};
-    
     initiatives.forEach(i => {
-      // Chỉ kiểm tra khớp với các bộ lọc KHÁC bộ lọc đơn vị (Cấp và Năm)
       const matchesLevel = selectedLevels.length === 0 || (i.level && i.level.some(l => selectedLevels.includes(l as InitiativeLevel)));
       const matchesYear = selectedYears.length === 0 || selectedYears.includes(i.year);
-      
       if (matchesLevel && matchesYear) {
         const itemUnits = Array.isArray(i.unit) ? i.unit : (i.unit ? [i.unit] : []);
         itemUnits.forEach(u => {
@@ -67,7 +69,6 @@ const ListPage: React.FC<ListPageProps> = ({ initiatives, activeTheme, user, onV
     return counts;
   }, [initiatives, selectedLevels, selectedYears]);
 
-  // 2. Danh sách tất cả đơn vị có dữ liệu trong hệ thống
   const allAvailableUnits = useMemo(() => {
     const units = new Set<string>();
     initiatives.forEach(i => {
@@ -77,29 +78,22 @@ const ListPage: React.FC<ListPageProps> = ({ initiatives, activeTheme, user, onV
     return Array.from(units);
   }, [initiatives]);
 
-  // 3. Lọc và sắp xếp đơn vị hiển thị trong dropdown
   const displayUnits = useMemo(() => {
     return allAvailableUnits
       .filter(unit => {
         const matchesSearch = unit.toLowerCase().includes(unitSearchQuery.toLowerCase());
         const count = unitCountsMap[unit] || 0;
         const isSelected = selectedUnits.includes(unit);
-        
-        // Ẩn đơn vị nếu không có sáng kiến (count === 0) dựa trên bộ lọc hiện tại
-        // Tuy nhiên, nếu đơn vị đó đang được CHỌN thì vẫn hiển thị để người dùng có thể bỏ chọn
         return matchesSearch && (count > 0 || isSelected);
       })
       .sort((a, b) => {
         const countA = unitCountsMap[a] || 0;
         const countB = unitCountsMap[b] || 0;
-        // Ưu tiên đơn vị có số lượng nhiều hơn lên trên
         if (countB !== countA) return countB - countA;
-        // Nếu số lượng bằng nhau thì sắp xếp theo tên
         return a.localeCompare(b);
       });
   }, [allAvailableUnits, unitSearchQuery, unitCountsMap, selectedUnits]);
 
-  // Các bộ lọc khả dụng khác để UI không bị "chết"
   const validLevels = useMemo(() => {
     const levels = new Set<InitiativeLevel>();
     initiatives.forEach(i => {
@@ -124,18 +118,15 @@ const ListPage: React.FC<ListPageProps> = ({ initiatives, activeTheme, user, onV
 
   const allAvailableYears = useMemo(() => Array.from(new Set(initiatives.map(i => i.year))).sort((a: number, b: number) => b - a), [initiatives]);
 
-  // Kết quả cuối cùng hiển thị sáng kiến
   const filtered = useMemo(() => {
     return initiatives.filter(i => {
       const unitArray = Array.isArray(i.unit) ? i.unit : (i.unit ? [i.unit] : []);
       const { matchesLevel, matchesYear, matchesUnit } = getMatches(i, selectedLevels, selectedYears, selectedUnits);
-      
       const unitStr = unitArray.join(' ');
       const matchesSearch = searchTerm === '' || 
                            i.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
                            (i.authors?.some(a => a.toLowerCase().includes(searchTerm.toLowerCase()))) ||
                            unitStr.toLowerCase().includes(searchTerm.toLowerCase());
-      
       return matchesLevel && matchesYear && matchesUnit && matchesSearch;
     });
   }, [searchTerm, selectedLevels, selectedYears, selectedUnits, initiatives]);
@@ -144,9 +135,7 @@ const ListPage: React.FC<ListPageProps> = ({ initiatives, activeTheme, user, onV
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
 
   const toggleUnitSelection = (unit: string) => {
-    setSelectedUnits(prev => 
-      prev.includes(unit) ? prev.filter(u => u !== unit) : [...prev, unit]
-    );
+    setSelectedUnits(prev => prev.includes(unit) ? prev.filter(u => u !== unit) : [...prev, unit]);
     setCurrentPage(1);
   };
 
@@ -164,6 +153,20 @@ const ListPage: React.FC<ListPageProps> = ({ initiatives, activeTheme, user, onV
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <h2 className="text-4xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Kho sáng kiến</h2>
+            <div className="flex bg-white dark:bg-slate-900 p-1.5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 ml-4">
+              <button 
+                onClick={() => setViewMode('grid')}
+                className={`p-2 rounded-xl transition-all ${viewMode === 'grid' ? `${activeTheme.primary} text-white shadow-lg` : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                <LayoutGrid size={20} />
+              </button>
+              <button 
+                onClick={() => setViewMode('table')}
+                className={`p-2 rounded-xl transition-all ${viewMode === 'table' ? `${activeTheme.primary} text-white shadow-lg` : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                <ListIcon size={20} />
+              </button>
+            </div>
             {(selectedLevels.length > 0 || selectedYears.length > 0 || selectedUnits.length > 0) && (
               <button 
                 onClick={clearFilters}
@@ -187,7 +190,6 @@ const ListPage: React.FC<ListPageProps> = ({ initiatives, activeTheme, user, onV
 
         <div className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm relative z-50">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Bộ lọc Cấp công nhận */}
             <div className="space-y-3">
               <p className="text-[9px] font-black text-slate-400 uppercase ml-2 flex items-center gap-1.5"><Award size={10}/> Cấp công nhận</p>
               <div className="flex flex-wrap gap-2">
@@ -214,10 +216,8 @@ const ListPage: React.FC<ListPageProps> = ({ initiatives, activeTheme, user, onV
               </div>
             </div>
 
-            {/* Bộ lọc Đơn vị (Dropdown) */}
             <div className="space-y-3" ref={dropdownRef}>
               <p className="text-[9px] font-black text-slate-400 uppercase ml-2 flex items-center gap-1.5"><Building2 size={10}/> Đơn vị</p>
-              
               <div className="relative">
                 <button 
                   onClick={() => setIsUnitDropdownOpen(!isUnitDropdownOpen)}
@@ -228,7 +228,6 @@ const ListPage: React.FC<ListPageProps> = ({ initiatives, activeTheme, user, onV
                   </span>
                   <ChevronDown size={16} className={`transition-transform duration-300 ${isUnitDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
-
                 {isUnitDropdownOpen && (
                   <div className="absolute top-full left-0 right-0 mt-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2rem] shadow-2xl p-4 space-y-3 animate-slide z-[100]">
                     <div className="relative">
@@ -271,8 +270,6 @@ const ListPage: React.FC<ListPageProps> = ({ initiatives, activeTheme, user, onV
                   </div>
                 )}
               </div>
-
-              {/* Selected Units Tags */}
               <div className="flex flex-wrap gap-1.5 mt-2">
                 {selectedUnits.map(unit => (
                   <div key={unit} className={`${activeTheme.primary} text-white px-3 py-1.5 rounded-lg text-[9px] font-black uppercase flex items-center gap-1.5 animate-in fade-in zoom-in`}>
@@ -285,7 +282,6 @@ const ListPage: React.FC<ListPageProps> = ({ initiatives, activeTheme, user, onV
               </div>
             </div>
 
-            {/* Bộ lọc Năm */}
             <div className="space-y-3">
               <p className="text-[9px] font-black text-slate-400 uppercase ml-2 flex items-center gap-1.5"><Calendar size={10}/> Năm công nhận</p>
               <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto custom-scrollbar pr-2">
@@ -315,26 +311,94 @@ const ListPage: React.FC<ListPageProps> = ({ initiatives, activeTheme, user, onV
         </div>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-8">
-        {paginated.map(item => (
-          <InitiativeCard 
-            key={item.id} 
-            item={item} 
-            activeTheme={activeTheme} 
-            user={user} 
-            onView={onView} 
-            onEdit={onEdit} 
-            onDelete={onDelete} 
-          />
-        ))}
-        {paginated.length === 0 && (
-          <div className="col-span-full py-20 text-center text-slate-400">
-            <div className="bg-slate-100 dark:bg-slate-900 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6"><Lightbulb size={48} /></div>
-            <p className="font-black uppercase tracking-widest text-xs">Không có sáng kiến nào khớp với bộ lọc</p>
-            <button onClick={clearFilters} className="mt-4 text-orange-600 font-black text-[10px] uppercase underline">Đặt lại bộ lọc</button>
+      {viewMode === 'grid' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-8 animate-slide">
+          {paginated.map(item => (
+            <InitiativeCard 
+              key={item.id} 
+              item={item} 
+              activeTheme={activeTheme} 
+              user={user} 
+              onView={onView} 
+              onEdit={onEdit} 
+              onDelete={onDelete} 
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden animate-slide">
+          <div className="overflow-x-auto custom-scrollbar">
+            <table className="w-full text-left border-collapse min-w-[1000px]">
+              <thead>
+                <tr className="bg-slate-50 dark:bg-slate-800/50">
+                  <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest border-b dark:border-slate-700">Năm/Cấp</th>
+                  <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest border-b dark:border-slate-700">Tên sáng kiến</th>
+                  <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest border-b dark:border-slate-700">Đơn vị</th>
+                  <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest border-b dark:border-slate-700">Tác giả</th>
+                  <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest border-b dark:border-slate-700">Lĩnh vực</th>
+                  <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest border-b dark:border-slate-700 text-center">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {paginated.map(item => (
+                  <tr key={item.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                    <td className="px-6 py-5">
+                      <div className="flex flex-col gap-1.5">
+                        <span className="text-xs font-black text-slate-900 dark:text-white">{item.year}</span>
+                        <div className="flex flex-wrap gap-1">
+                          {item.level?.map(lvl => (
+                            <span key={lvl} className={`${LEVEL_COLORS[lvl as InitiativeLevel]} text-white text-[8px] font-black px-2 py-0.5 rounded-md`}>{lvl}</span>
+                          ))}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-5 max-w-md">
+                      <p className="text-sm font-black text-slate-900 dark:text-white line-clamp-2 uppercase tracking-tight leading-tight group-hover:text-orange-600 transition-colors">{item.title}</p>
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                        <Building2 size={14} className={activeTheme.text} />
+                        <span className="truncate max-w-[150px]">{Array.isArray(item.unit) ? item.unit.join(', ') : item.unit}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                        <Users size={14} className={activeTheme.text} />
+                        <span className="truncate max-w-[120px]">{Array.isArray(item.authors) ? item.authors.join(', ') : item.authors}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
+                        <Briefcase size={14} />
+                        <span className="truncate max-w-[100px]">{item.field || '---'}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex items-center justify-center gap-2">
+                        <button onClick={() => onView(item)} className="p-2.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-all" title="Xem chi tiết"><Eye size={18} /></button>
+                        {user && (
+                          <>
+                            <button onClick={() => onEdit(item)} className={`p-2.5 text-slate-400 hover:${activeTheme.text} hover:${activeTheme.accent} dark:hover:bg-slate-800 rounded-xl transition-all`} title="Chỉnh sửa"><Edit2 size={18} /></button>
+                            <button onClick={() => onDelete(item.id)} className="p-2.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-xl transition-all" title="Xóa"><Trash2 size={18} /></button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {paginated.length === 0 && (
+        <div className="py-20 text-center text-slate-400">
+          <div className="bg-slate-100 dark:bg-slate-900 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6"><Lightbulb size={48} /></div>
+          <p className="font-black uppercase tracking-widest text-xs">Không có sáng kiến nào khớp với bộ lọc</p>
+          <button onClick={clearFilters} className="mt-4 text-orange-600 font-black text-[10px] uppercase underline">Đặt lại bộ lọc</button>
+        </div>
+      )}
 
       {totalPages > 1 && (
         <div className="flex justify-center gap-2 mt-12">
