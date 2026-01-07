@@ -131,9 +131,9 @@ const ResearchPage: React.FC<ResearchPageProps> = ({ activeTheme, user, onEdit, 
                       </div>
                     </div>
                     
-                    {/* Action Buttons: Moved to header area to prevent overlapping */}
+                    {/* Action Buttons: Z-index cao để đảm bảo bấm được */}
                     {user && (
-                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                          <button onClick={() => onEdit(project)} className="p-3 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-blue-500 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 transition-all hover:scale-110" title="Chỉnh sửa"><Edit2 size={16}/></button>
                          <button onClick={() => handleDelete(project.id)} className="p-3 bg-rose-50 dark:bg-rose-900/30 text-rose-400 hover:text-rose-600 rounded-xl shadow-sm border border-rose-100 dark:border-rose-900 transition-all hover:scale-110" title="Xóa đề tài"><Trash2 size={16}/></button>
                       </div>

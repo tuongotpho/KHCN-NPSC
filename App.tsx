@@ -112,13 +112,14 @@ const App: React.FC = () => {
         settlementStatus: 'chua_thanh_toan',
         status: 'dang_thuc_hien',
         level: 'NPSC',
-        content: ''
+        content: '',
+        attachmentUrl: ''
       });
       setRawAuthors('');
       setRawMembers('');
       setRawExperts('');
     } else {
-      setEditingItem({ title: '', authors: [], year: new Date().getFullYear(), level: ['HLH'], content: '', unit: [] });
+      setEditingItem({ title: '', authors: [], year: new Date().getFullYear(), level: ['HLH'], content: '', unit: [], driveLink: '' });
       setRawInitAuthors('');
       setUnitInput('');
     }
@@ -255,9 +256,9 @@ const App: React.FC = () => {
         {/* MODAL BATCH IMPORT */}
         <BatchImportModal isOpen={isBatchModalOpen} onClose={() => setIsBatchModalOpen(false)} activeTheme={activeTheme} />
 
-        {/* MODAL EDIT PROJECT (Research) */}
+        {/* MODAL EDIT PROJECT (Research) - ĐÃ CẬP NHẬT ĐẦY ĐỦ */}
         {editingProject && (
-          <div className="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xl">
+          <div className="fixed inset-0 z-[1200] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xl">
             <div className="bg-white dark:bg-slate-900 rounded-[3rem] w-full max-w-3xl max-h-[95vh] shadow-2xl flex flex-col overflow-hidden border-4 border-white dark:border-slate-800">
                <div className="p-8 border-b dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900">
                  <h3 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3"><Microscope className={activeTheme.text}/> Quản trị Đề tài KHCN</h3>
@@ -276,8 +277,71 @@ const App: React.FC = () => {
                       </select>
                     </div>
                   </div>
-                  {/* ... Rest of Research Project Form ... */}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-1"><label className="text-[9px] font-black uppercase text-slate-400 ml-2">Kinh phí (VNĐ)</label><input type="number" className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500/20" value={editingProject.budget} onChange={e => setEditingProject({...editingProject, budget: parseInt(e.target.value)})} /></div>
+                    <div className="space-y-1"><label className="text-[9px] font-black uppercase text-slate-400 ml-2">Tiến độ (%)</label><input type="range" min="0" max="100" className="w-full h-10 accent-orange-600" value={editingProject.progress} onChange={e => setEditingProject({...editingProject, progress: parseInt(e.target.value)})} /><p className="text-right text-[10px] font-black text-orange-600 uppercase">{editingProject.progress}% Hoàn thành</p></div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-1"><label className="text-[9px] font-black uppercase text-slate-400 ml-2">Thanh quyết toán</label>
+                      <select className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl font-bold appearance-none dark:text-white outline-none" value={editingProject.settlementStatus} onChange={e => setEditingProject({...editingProject, settlementStatus: e.target.value as any})}>
+                        <option value="chua_thanh_toan">Chưa thanh toán</option>
+                        <option value="dang_thanh_toan">Đang thanh toán</option>
+                        <option value="da_quyet_toan">Đã quyết toán</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1"><label className="text-[9px] font-black uppercase text-slate-400 ml-2">Tình trạng đề tài</label>
+                      <select className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl font-bold appearance-none dark:text-white outline-none" value={editingProject.status} onChange={e => setEditingProject({...editingProject, status: e.target.value as any})}>
+                        <option value="dang_thuc_hien">Đang thực hiện</option>
+                        <option value="da_nghiem_thu">Đã nghiệm thu</option>
+                        <option value="da_huy">Đã hủy</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase text-slate-400 ml-2 flex items-center gap-1"><Users size={10}/> Nhóm tác giả (phân cách bằng dấu phẩy)</label>
+                      <input 
+                        className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500/20" 
+                        value={rawAuthors} 
+                        onChange={e => setRawAuthors(e.target.value)} 
+                        placeholder="Nguyễn Văn A, Trần Thị B..." 
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase text-slate-400 ml-2 flex items-center gap-1"><UserCheck size={10}/> Thành viên làm chính</label>
+                      <input 
+                        className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500/20" 
+                        value={rawMembers} 
+                        onChange={e => setRawMembers(e.target.value)} 
+                        placeholder="Huy, Nam..."
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase text-slate-400 ml-2 flex items-center gap-1"><GraduationCap size={10}/> Chuyên gia cố vấn</label>
+                      <input 
+                        className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500/20" 
+                        value={rawExperts} 
+                        onChange={e => setRawExperts(e.target.value)} 
+                        placeholder="Tiến sĩ A, Chuyên gia B..."
+                      />
+                    </div>
+                  </div>
+
                   <div className="space-y-1"><label className="text-[9px] font-black uppercase text-slate-400 ml-2">Nội dung tóm tắt</label><textarea rows={5} className="w-full px-6 py-5 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-[2rem] font-bold resize-none dark:text-white outline-none focus:ring-2 focus:ring-orange-500/20" value={editingProject.content} onChange={e => setEditingProject({...editingProject, content: e.target.value})} /></div>
+               
+                  {/* Thêm trường Link Hồ Sơ */}
+                  <div className="space-y-1">
+                     <label className="text-[9px] font-black uppercase text-slate-400 ml-2 flex items-center gap-1"><ExternalLink size={10}/> Link hồ sơ / Thuyết minh (URL)</label>
+                     <input 
+                        className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500/20" 
+                        value={editingProject.attachmentUrl || ''} 
+                        onChange={e => setEditingProject({...editingProject, attachmentUrl: e.target.value})} 
+                        placeholder="https://drive.google.com/..." 
+                      />
+                  </div>
                </div>
                <div className="p-8 border-t dark:border-slate-800 flex gap-4 bg-white dark:bg-slate-900">
                  <button onClick={() => setEditingProject(null)} className="flex-1 py-4 border-2 border-slate-200 dark:border-slate-700 rounded-[2rem] font-black text-slate-400 uppercase text-[10px] hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">Hủy bỏ</button>
@@ -289,7 +353,7 @@ const App: React.FC = () => {
 
         {/* MODAL EDIT INITIATIVE (Sáng kiến) - Cải tiến nhập liệu */}
         {editingItem && (
-          <div className="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xl">
+          <div className="fixed inset-0 z-[1200] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xl">
              <div className="bg-white dark:bg-slate-900 rounded-[3rem] w-full max-w-3xl max-h-[95vh] shadow-2xl flex flex-col overflow-hidden border-4 border-white dark:border-slate-800">
                 <div className="p-8 border-b dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900">
                   <h3 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3"><Lightbulb className={activeTheme.text}/> Thông tin sáng kiến</h3>
