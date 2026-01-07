@@ -16,7 +16,7 @@ import { Initiative, InitiativeLevel, ResearchProject, SettlementStatus, Project
 import { 
   X, LogIn, Mail, Lock, Lightbulb, Building2, Users, Edit, 
   Award, Plus, Search, Paperclip, ExternalLink, Download, FileText, Trash2, Loader2, AlertTriangle,
-  Microscope, DollarSign, Activity, GraduationCap, UserCheck, Save
+  Microscope, DollarSign, Activity, GraduationCap, UserCheck, Save, Calendar, CheckCircle2, Info
 } from 'lucide-react';
 
 const THEMES = {
@@ -44,10 +44,14 @@ const App: React.FC = () => {
   const [editingItem, setEditingItem] = useState<Partial<Initiative> | null>(null);
   const [editingProject, setEditingProject] = useState<Partial<ResearchProject> | null>(null);
   
-  // States for raw string inputs to fix Space typing issue
+  // States for raw string inputs (Research Project)
   const [rawAuthors, setRawAuthors] = useState('');
   const [rawMembers, setRawMembers] = useState('');
   const [rawExperts, setRawExperts] = useState('');
+
+  // States for raw string inputs (Initiative) - Separate to avoid conflicts
+  const [rawInitAuthors, setRawInitAuthors] = useState('');
+  const [rawInitUnits, setRawInitUnits] = useState('');
 
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
@@ -102,6 +106,8 @@ const App: React.FC = () => {
       setRawExperts('');
     } else {
       setEditingItem({ title: '', authors: [], year: new Date().getFullYear(), level: ['HLH'], content: '', unit: [] });
+      setRawInitAuthors('');
+      setRawInitUnits('');
     }
   };
 
@@ -110,6 +116,12 @@ const App: React.FC = () => {
     setRawAuthors(project.authors?.join(', ') || '');
     setRawMembers(project.mainMembers?.join(', ') || '');
     setRawExperts(project.experts?.join(', ') || '');
+  };
+
+  const handleEditInitiative = (item: Initiative) => {
+    setEditingItem(item);
+    setRawInitAuthors(Array.isArray(item.authors) ? item.authors.join(', ') : (item.authors || ''));
+    setRawInitUnits(Array.isArray(item.unit) ? item.unit.join(', ') : (item.unit || ''));
   };
 
   const handleSaveProject = async () => {
@@ -135,6 +147,29 @@ const App: React.FC = () => {
     }
   };
 
+  const handleSaveInitiative = async () => {
+    if (!editingItem?.title) return alert("Vui lòng nhập tên sáng kiến.");
+
+    // Process raw strings for Initiative
+    const finalInitiative = {
+      ...editingItem,
+      authors: rawInitAuthors.split(',').map(s => s.trim()).filter(s => s !== ''),
+      unit: rawInitUnits.split(',').map(s => s.trim()).filter(s => s !== '')
+    };
+
+    try {
+      if (finalInitiative.id) {
+        await db.collection("initiatives").doc(finalInitiative.id).update(finalInitiative);
+      } else {
+        await db.collection("initiatives").add(finalInitiative);
+      }
+      setEditingItem(null);
+    } catch (e) {
+      alert("Lỗi khi lưu sáng kiến.");
+      console.error(e);
+    }
+  };
+
   return (
     <ErrorBoundary>
       <div className="min-h-screen flex flex-col lg:flex-row bg-[#f8fafc] dark:bg-slate-950 transition-colors duration-300">
@@ -148,19 +183,22 @@ const App: React.FC = () => {
 
         <main className="flex-1 p-4 lg:p-10 overflow-y-auto">
           <div className="animate-slide">
-            {activeTab === 'list' && <ListPage initiatives={initiatives} activeTheme={activeTheme} user={user} onView={setViewingItem} onEdit={setEditingItem} onDelete={(id) => db.collection("initiatives").doc(id).delete()} />}
+            {activeTab === 'list' && <ListPage initiatives={initiatives} activeTheme={activeTheme} user={user} onView={setViewingItem} onEdit={handleEditInitiative} onDelete={(id) => db.collection("initiatives").doc(id).delete()} />}
             {activeTab === 'stats' && <StatsPage initiatives={initiatives} activeTheme={activeTheme} onViewItem={setViewingItem} />}
             {activeTab === 'chat' && <ChatPage initiatives={initiatives} activeTheme={activeTheme} />}
             {activeTab === 'references' && <ReferencePage activeTheme={activeTheme} user={user} />}
             {activeTab === 'research' && <ResearchPage activeTheme={activeTheme} user={user} onEdit={handleEditProject} onAdd={handleAdd} />}
-            {activeTab === 'bubble' && <BubblePage initiatives={initiatives} activeTheme={activeTheme} user={user} onView={setViewingItem} onEdit={setEditingItem} onDelete={(id) => db.collection("initiatives").doc(id).delete()} />}
-            {activeTab === 'treemap' && <TreeMapPage initiatives={initiatives} activeTheme={activeTheme} user={user} onView={setViewingItem} onEdit={setEditingItem} onDelete={(id) => db.collection("initiatives").doc(id).delete()} />}
+            {activeTab === 'bubble' && <BubblePage initiatives={initiatives} activeTheme={activeTheme} user={user} onView={setViewingItem} onEdit={handleEditInitiative} onDelete={(id) => db.collection("initiatives").doc(id).delete()} />}
+            {activeTab === 'treemap' && <TreeMapPage initiatives={initiatives} activeTheme={activeTheme} user={user} onView={setViewingItem} onEdit={handleEditInitiative} onDelete={(id) => db.collection("initiatives").doc(id).delete()} />}
           </div>
         </main>
 
-        {/* MODAL EDIT PROJECT */}
+        {/* MODAL BATCH IMPORT */}
+        <BatchImportModal isOpen={isBatchModalOpen} onClose={() => setIsBatchModalOpen(false)} activeTheme={activeTheme} />
+
+        {/* MODAL EDIT PROJECT (Research) */}
         {editingProject && (
-          <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xl">
+          <div className="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xl">
             <div className="bg-white dark:bg-slate-900 rounded-[3rem] w-full max-w-3xl max-h-[95vh] shadow-2xl flex flex-col overflow-hidden border-4 border-white dark:border-slate-800">
                <div className="p-8 border-b dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900">
                  <h3 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3"><Microscope className={activeTheme.text}/> Quản trị Đề tài KHCN</h3>
@@ -242,9 +280,123 @@ const App: React.FC = () => {
           </div>
         )}
 
+        {/* MODAL EDIT INITIATIVE (Sáng kiến) - Khôi phục lại */}
+        {editingItem && (
+          <div className="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xl">
+             <div className="bg-white dark:bg-slate-900 rounded-[3rem] w-full max-w-3xl max-h-[95vh] shadow-2xl flex flex-col overflow-hidden border-4 border-white dark:border-slate-800">
+                <div className="p-8 border-b dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900">
+                  <h3 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3"><Lightbulb className={activeTheme.text}/> Thông tin sáng kiến</h3>
+                  <button onClick={() => setEditingItem(null)} className="p-4 hover:bg-white dark:hover:bg-slate-800 rounded-2xl transition-all shadow-sm text-slate-400"><X size={28} /></button>
+                </div>
+                <div className="p-8 lg:p-12 overflow-y-auto flex-1 space-y-6 custom-scrollbar">
+                   <div className="space-y-1"><label className="text-[9px] font-black uppercase text-slate-400 ml-2">Tên sáng kiến</label><input className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500/20" value={editingItem.title} onChange={e => setEditingItem({...editingItem, title: e.target.value})} /></div>
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-1"><label className="text-[9px] font-black uppercase text-slate-400 ml-2">Năm công nhận</label><input type="number" className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500/20" value={editingItem.year} onChange={e => setEditingItem({...editingItem, year: parseInt(e.target.value)})} /></div>
+                      <div className="space-y-1"><label className="text-[9px] font-black uppercase text-slate-400 ml-2">Lĩnh vực</label><input className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500/20" value={editingItem.field || ''} onChange={e => setEditingItem({...editingItem, field: e.target.value})} placeholder="Vd: Viễn thông, CNTT..." /></div>
+                   </div>
+                   
+                   <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase text-slate-400 ml-2">Các cấp công nhận (Giữ Ctrl để chọn nhiều)</label>
+                      <select multiple className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500/20 h-32" 
+                        value={editingItem.level} 
+                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                          const options = Array.from(e.target.selectedOptions, option => option.value);
+                          setEditingItem({...editingItem, level: options as any});
+                        }}>
+                        <option value="HLH">Hợp lý hóa</option>
+                        <option value="NPSC">Cấp Công ty (NPSC)</option>
+                        <option value="NPC">Cấp Tổng công ty (NPC)</option>
+                        <option value="EVN">Cấp Tập đoàn (EVN)</option>
+                      </select>
+                   </div>
+                   
+                   <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase text-slate-400 ml-2 flex items-center gap-1"><Users size={10}/> Tác giả (phân cách bằng dấu phẩy)</label>
+                      <input 
+                        className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500/20" 
+                        value={rawInitAuthors} 
+                        onChange={e => setRawInitAuthors(e.target.value)} 
+                        placeholder="Nguyễn Văn A, Trần Thị B..." 
+                      />
+                   </div>
+                   
+                   <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase text-slate-400 ml-2 flex items-center gap-1"><Building2 size={10}/> Đơn vị áp dụng (phân cách bằng dấu phẩy)</label>
+                      <input 
+                        className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500/20" 
+                        value={rawInitUnits} 
+                        onChange={e => setRawInitUnits(e.target.value)} 
+                        placeholder="Phòng KHVT, Đội xe..." 
+                      />
+                   </div>
+
+                   <div className="space-y-1"><label className="text-[9px] font-black uppercase text-slate-400 ml-2">Nội dung tóm tắt</label><textarea rows={6} className="w-full px-6 py-5 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-[2rem] font-bold resize-none dark:text-white outline-none focus:ring-2 focus:ring-orange-500/20" value={editingItem.content} onChange={e => setEditingItem({...editingItem, content: e.target.value})} /></div>
+                   
+                   <div className="space-y-1"><label className="text-[9px] font-black uppercase text-slate-400 ml-2">Link Drive (Nếu có)</label><input className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500/20" value={editingItem.driveLink || ''} onChange={e => setEditingItem({...editingItem, driveLink: e.target.value})} placeholder="https://drive.google.com/..." /></div>
+                </div>
+                <div className="p-8 border-t dark:border-slate-800 flex gap-4 bg-white dark:bg-slate-900">
+                  <button onClick={() => setEditingItem(null)} className="flex-1 py-4 border-2 border-slate-200 dark:border-slate-700 rounded-[2rem] font-black text-slate-400 uppercase text-[10px] hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">Hủy bỏ</button>
+                  <button onClick={handleSaveInitiative} className={`flex-[2] py-4 ${activeTheme.primary} text-white rounded-[2rem] font-black shadow-lg uppercase text-[10px] flex items-center justify-center gap-2 hover:brightness-110 transition-all`}><Save size={18}/> Lưu thông tin</button>
+                </div>
+             </div>
+          </div>
+        )}
+
+        {/* MODAL VIEW DETAIL INITIATIVE (Sáng kiến) - Khôi phục lại */}
+        {viewingItem && (
+          <div className="fixed inset-0 z-[1050] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
+             <div className="bg-white dark:bg-slate-900 rounded-[3rem] w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl border-4 border-white dark:border-slate-800">
+                <div className="p-8 border-b dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900/50">
+                   <div className="flex items-center gap-4">
+                      <div className={`${activeTheme.primary} p-4 rounded-2xl text-white shadow-lg`}><Info size={24} /></div>
+                      <h3 className="text-2xl font-black uppercase tracking-tighter dark:text-white">Chi tiết sáng kiến</h3>
+                   </div>
+                   <button onClick={() => setViewingItem(null)} className="p-4 hover:bg-white dark:hover:bg-slate-800 rounded-2xl transition-all shadow-sm text-slate-400"><X size={28} /></button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-8 lg:p-12 space-y-8 custom-scrollbar">
+                   <div className="space-y-4">
+                      <div className="flex flex-wrap gap-2">
+                         <span className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest"><Calendar size={14}/> Năm {viewingItem.year}</span>
+                         {viewingItem.level?.map(l => (
+                            <span key={l} className={`flex items-center gap-2 ${LEVEL_COLORS[l] || 'bg-slate-500'} text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest`}><Award size={14}/> {l}</span>
+                         ))}
+                      </div>
+                      <h1 className="text-3xl font-black text-slate-900 dark:text-white uppercase leading-tight tracking-tight">{viewingItem.title}</h1>
+                   </div>
+
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-slate-50 dark:bg-slate-800/50 p-8 rounded-[2rem] border border-slate-100 dark:border-slate-800">
+                      <div className="space-y-4">
+                         <div className="space-y-1">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Users size={12}/> Tác giả</p>
+                            <p className="text-base font-bold text-slate-800 dark:text-white">{Array.isArray(viewingItem.authors) ? viewingItem.authors.join(', ') : viewingItem.authors}</p>
+                         </div>
+                      </div>
+                      <div className="space-y-4">
+                         <div className="space-y-1">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Building2 size={12}/> Đơn vị áp dụng</p>
+                            <p className="text-base font-bold text-slate-800 dark:text-white">{Array.isArray(viewingItem.unit) ? viewingItem.unit.join(', ') : viewingItem.unit}</p>
+                         </div>
+                      </div>
+                   </div>
+
+                   <div className="space-y-4">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 border-b dark:border-slate-800 pb-2"><FileText size={14}/> Nội dung giải pháp</p>
+                      <div className="text-lg text-slate-700 dark:text-slate-300 leading-relaxed font-medium whitespace-pre-wrap">{viewingItem.content}</div>
+                   </div>
+
+                   {viewingItem.driveLink && (
+                      <a href={viewingItem.driveLink} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-3 px-8 py-4 ${activeTheme.primary} text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:scale-105 transition-all w-fit`}>
+                         <ExternalLink size={16} /> Xem tài liệu gốc
+                      </a>
+                   )}
+                </div>
+             </div>
+          </div>
+        )}
+
         {/* LOGIN MODAL (existing) */}
         {isLoginModalOpen && (
-          <div className="fixed inset-0 z-[600] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xl">
+          <div className="fixed inset-0 z-[1200] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xl">
              <div className="bg-white dark:bg-slate-900 rounded-[3rem] w-full max-w-md p-10 text-center space-y-8 animate-slide">
                 <div className={`mx-auto ${activeTheme.primary} w-20 h-20 rounded-[2rem] flex items-center justify-center text-white shadow-xl mb-4`}><LogIn size={36} /></div>
                 <h3 className="text-2xl font-black uppercase tracking-tighter">Hệ thống Admin</h3>

@@ -227,10 +227,10 @@ const ResearchPage: React.FC<ResearchPageProps> = ({ activeTheme, user, onEdit, 
 
       {/* DETAIL VIEW MODAL - ACCESSIBLE BY EVERYONE */}
       {viewingProject && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
+        <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-[3rem] w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl border-4 border-white dark:border-slate-800">
             {/* Modal Header */}
-            <div className="p-6 lg:p-8 border-b dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900/50">
+            <div className="p-6 lg:p-10 border-b dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900/50">
                <div className="flex items-center gap-4">
                   <div className={`${activeTheme.primary} p-4 rounded-2xl text-white shadow-lg`}><Info size={24} /></div>
                   <h3 className="text-xl lg:text-2xl font-black uppercase tracking-tighter dark:text-white">Chi tiết đề tài nghiên cứu</h3>

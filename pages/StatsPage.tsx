@@ -101,11 +101,11 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
 
   // Sắp xếp toàn bộ danh sách
   const allAuthorsSorted = useMemo(() => {
-    return Object.entries(dashboardStats.authorScores).sort((a, b) => b[1].score - a[1].score);
+    return Object.entries(dashboardStats.authorScores).sort((a: any, b: any) => b[1].score - a[1].score);
   }, [dashboardStats.authorScores]);
 
   const allUnitsSorted = useMemo(() => {
-    return Object.entries(dashboardStats.unitScores).sort((a, b) => b[1].score - a[1].score);
+    return Object.entries(dashboardStats.unitScores).sort((a: any, b: any) => b[1].score - a[1].score);
   }, [dashboardStats.unitScores]);
 
   // Danh sách hiển thị dựa trên tab và trạng thái mở rộng
