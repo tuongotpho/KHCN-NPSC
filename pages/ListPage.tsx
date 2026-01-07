@@ -189,8 +189,8 @@ const ListPage: React.FC<ListPageProps> = ({ initiatives, activeTheme, user, onV
         </div>
 
         <div className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm relative z-50">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="space-y-3">
+          <div className="flex flex-col lg:flex-row gap-6 lg:items-start">
+            <div className="space-y-3 lg:w-auto shrink-0">
               <p className="text-[9px] font-black text-slate-400 uppercase ml-2 flex items-center gap-1.5"><Award size={10}/> Cấp công nhận</p>
               <div className="flex flex-wrap gap-2">
                 {(['HLH', 'NPSC', 'NPC', 'EVN'] as InitiativeLevel[]).map(lvl => {
@@ -216,7 +216,7 @@ const ListPage: React.FC<ListPageProps> = ({ initiatives, activeTheme, user, onV
               </div>
             </div>
 
-            <div className="space-y-3" ref={dropdownRef}>
+            <div className="space-y-3 lg:w-[280px] shrink-0" ref={dropdownRef}>
               <p className="text-[9px] font-black text-slate-400 uppercase ml-2 flex items-center gap-1.5"><Building2 size={10}/> Đơn vị</p>
               <div className="relative">
                 <button 
@@ -282,7 +282,7 @@ const ListPage: React.FC<ListPageProps> = ({ initiatives, activeTheme, user, onV
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-3 flex-1 min-w-0">
               <p className="text-[9px] font-black text-slate-400 uppercase ml-2 flex items-center gap-1.5"><Calendar size={10}/> Năm công nhận</p>
               <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto custom-scrollbar pr-2">
                 {allAvailableYears.map(year => {

@@ -1,11 +1,12 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { 
   Zap, Award, Building2, Activity, Calendar, Briefcase, 
   BarChart3, FileText, Loader2, Sparkles, Bot, ChevronLeft, ChevronRight,
   Trophy, Medal, Star, Users, Info, UserCheck, Landmark,
-  ShieldCheck, Flame, TrendingUp, Gem, CheckCircle2, Calculator, ChevronDown, ChevronUp, Edit3, X, Save
+  ShieldCheck, Flame, TrendingUp, Gem, CheckCircle2, Calculator, ChevronDown, ChevronUp, Edit3, X, Save, Download
 } from 'lucide-react';
+import html2canvas from 'html2canvas';
 import { Initiative, InitiativeLevel, PointConfig } from '../types';
 import { getAIInstance, AI_SYSTEM_INSTRUCTION } from '../services/aiService';
 
@@ -29,6 +30,10 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
   const [currentPage, setCurrentPage] = useState(1);
   const [aiInsight, setAiInsight] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState(false);
+  
+  // States for Image Export
+  const [isExporting, setIsExporting] = useState(false);
+  const hofRef = useRef<HTMLDivElement>(null);
 
   // States for Editing Point Config
   const [isEditConfigOpen, setIsEditConfigOpen] = useState(false);
@@ -157,6 +162,28 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
     }
   };
 
+  const handleExportHof = async () => {
+    if (!hofRef.current) return;
+    setIsExporting(true);
+    try {
+      const canvas = await html2canvas(hofRef.current, {
+        backgroundColor: '#020617', // Match slate-950
+        scale: 2, // High resolution
+        useCORS: true,
+        logging: false
+      });
+      const link = document.createElement('a');
+      link.download = `Bang_Vang_NPSC_${new Date().getFullYear()}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (err) {
+      console.error("Export failed", err);
+      alert("Không thể xuất ảnh lúc này. Vui lòng thử lại.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const getRankBadge = (index: number) => {
     const baseClass = "absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[9px] font-black uppercase flex items-center gap-1 shadow-xl z-20 transition-all";
     switch(index) {
@@ -202,40 +229,45 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
       </div>
 
       {/* Bảng Vàng Vinh Danh */}
-      <div className="bg-slate-950 rounded-[4rem] p-10 lg:p-14 text-white relative overflow-hidden shadow-2xl border border-white/5">
-        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-amber-500/5 rounded-full blur-[120px] -mr-64 -mt-64"></div>
+      <div ref={hofRef} className="bg-slate-950 rounded-[4rem] p-10 lg:p-14 text-white relative overflow-hidden shadow-2xl border border-white/5">
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-amber-500/5 rounded-full blur-[120px] -mr-64 -mt-64 pointer-events-none"></div>
         
         <div className="relative z-10 space-y-12">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
             <div className="flex items-center gap-5">
                <div className="p-5 bg-amber-500/20 rounded-3xl text-amber-500 border border-amber-500/20 shadow-2xl shadow-amber-500/10 animate-pulse"><Trophy size={42}/></div>
-               <div>
-                  <h3 className="text-4xl font-black uppercase tracking-tighter mb-1 flex items-center gap-3">Bảng Vàng Danh Dự <Gem className="text-amber-500" size={24}/></h3>
-                  <div className="flex gap-4">
-                    <button onClick={() => { setHallOfFameTab('author'); setIsHofExpanded(false); }} className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center gap-2 ${hallOfFameTab === 'author' ? 'text-amber-500' : 'text-slate-600 hover:text-slate-400'}`}>
+               <div className="flex flex-col">
+                  <h3 className="text-4xl font-black uppercase tracking-tighter flex items-center gap-3 leading-snug mb-6">Bảng Vàng Danh Dự <Gem className="text-amber-500" size={24}/></h3>
+                  <div className="flex flex-wrap gap-4 items-center">
+                    <button onClick={() => { setHallOfFameTab('author'); setIsHofExpanded(false); }} className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center gap-2 px-3 py-1.5 rounded-xl border border-transparent ${hallOfFameTab === 'author' ? 'text-slate-950 bg-amber-500' : 'text-slate-400 bg-white/5 hover:bg-white/10 hover:text-white'}`}>
                       <UserCheck size={14}/> Kiện tướng cá nhân
                     </button>
-                    <button onClick={() => { setHallOfFameTab('unit'); setIsHofExpanded(false); }} className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center gap-2 ${hallOfFameTab === 'unit' ? 'text-amber-500' : 'text-slate-600 hover:text-slate-400'}`}>
+                    <button onClick={() => { setHallOfFameTab('unit'); setIsHofExpanded(false); }} className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center gap-2 px-3 py-1.5 rounded-xl border border-transparent ${hallOfFameTab === 'unit' ? 'text-slate-950 bg-amber-500' : 'text-slate-400 bg-white/5 hover:bg-white/10 hover:text-white'}`}>
                       <Landmark size={14}/> Tập thể tiên phong
                     </button>
                   </div>
                </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-4">
+            <div className="flex flex-wrap items-center gap-3" data-html2canvas-ignore>
+               {/* Export Button */}
+               <button 
+                onClick={handleExportHof}
+                disabled={isExporting}
+                className="flex items-center gap-2 px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border border-amber-500/20 bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-slate-950 shadow-lg"
+               >
+                {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16}/>}
+                {isExporting ? 'Đang xuất...' : 'Xuất ảnh vinh danh'}
+               </button>
+
                {/* Toggle View Mode */}
                <button 
                 onClick={() => setIsHofExpanded(!isHofExpanded)}
                 className={`flex items-center gap-3 px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${isHofExpanded ? 'bg-amber-500 text-slate-950 border-transparent shadow-2xl shadow-amber-500/20' : 'bg-white/5 text-slate-400 border-white/10 hover:border-amber-500/50'}`}
                >
                 {isHofExpanded ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
-                {isHofExpanded ? 'Thu gọn danh sách' : 'Xem toàn bộ danh sách'}
+                {isHofExpanded ? 'Thu gọn' : 'Xem tất cả'}
                </button>
-
-               <div className="bg-white/5 p-1.5 rounded-2xl border border-white/10 flex shadow-2xl">
-                  <button onClick={() => { setHallOfFameTab('author'); setIsHofExpanded(false); }} className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${hallOfFameTab === 'author' ? 'bg-amber-500 text-slate-950 shadow-lg' : 'text-slate-400 hover:text-white'}`}>Tác giả</button>
-                  <button onClick={() => { setHallOfFameTab('unit'); setIsHofExpanded(false); }} className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${hallOfFameTab === 'unit' ? 'bg-amber-500 text-slate-950 shadow-lg' : 'text-slate-400 hover:text-white'}`}>Đơn vị</button>
-               </div>
             </div>
           </div>
 
@@ -260,11 +292,11 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
                       </h4>
 
                       {/* Badges Display */}
-                      <div className="flex flex-wrap justify-center gap-1.5 min-h-[20px]">
+                      <div className="flex flex-wrap justify-center gap-2 min-h-[20px]">
                          {badges.map((b, i) => (
-                           <div key={i} className={`flex items-center gap-1 px-2 py-0.5 rounded-full border border-white/10 ${statsDetailValue === name ? 'bg-slate-950/20 text-slate-950 border-slate-950/20' : b.color}`} title={b.label}>
+                           <div key={i} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-white/10 ${statsDetailValue === name ? 'bg-slate-950/20 text-slate-950 border-slate-950/20' : b.color}`} title={b.label}>
                              {b.icon}
-                             <span className="text-[7px] font-black uppercase tracking-tighter">{b.label}</span>
+                             <span className="text-[8px] font-black uppercase tracking-tighter leading-none pt-0.5">{b.label}</span>
                            </div>
                          ))}
                       </div>
@@ -298,6 +330,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
                     <button 
                         onClick={() => { setTempConfig(pointConfig); setIsEditConfigOpen(true); }}
                         className="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[9px] font-black uppercase text-amber-500 transition-colors"
+                        data-html2canvas-ignore
                     >
                         <Edit3 size={10} /> Cấu hình điểm
                     </button>
@@ -452,41 +485,6 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
               <div className="flex-1 flex flex-col items-center justify-center text-center p-10 opacity-50">
                 <div className="bg-white dark:bg-slate-800 p-10 rounded-full text-slate-200 dark:text-slate-700 mb-6 shadow-inner"><BarChart3 size={64} /></div>
                 <p className="text-slate-400 font-black text-xs uppercase tracking-[0.3em]">Chọn danh mục bên trái hoặc xem Bảng Vàng</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-slate-900 p-12 lg:p-16 rounded-[4rem] text-white shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-16 opacity-5 rotate-12 scale-150"><Sparkles size={150} /></div>
-        <div className="relative z-10">
-          <div className="flex flex-col md:flex-row items-center justify-between mb-10 gap-6">
-            <div className="flex items-center gap-5">
-              <div className={`${activeTheme.primary} p-5 rounded-3xl shadow-2xl animate-pulse`}><Bot size={36} /></div>
-              <div>
-                <h3 className="text-3xl font-black uppercase tracking-tighter">AI Dự báo Xu hướng</h3>
-                <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Cố vấn chiến lược dựa trên lịch sử đóng góp</p>
-              </div>
-            </div>
-            <button 
-              onClick={generateInsight} 
-              disabled={isGenerating} 
-              className="px-10 py-5 bg-white text-slate-900 rounded-[2rem] font-black flex items-center gap-3 hover:bg-orange-50 transition-all shadow-2xl active:scale-95 disabled:opacity-50 text-xs uppercase tracking-widest"
-            >
-              {isGenerating ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />} 
-              XEM GỢI Ý CHIẾN LƯỢC
-            </button>
-          </div>
-          <div className="bg-white/5 backdrop-blur-xl rounded-[3rem] border border-white/10 p-12 min-h-[350px] flex items-center justify-center">
-            {aiInsight ? (
-              <div className="text-xl text-slate-100 leading-relaxed font-medium whitespace-pre-wrap w-full animate-slide prose dark:prose-invert max-w-none">
-                {aiInsight}
-              </div>
-            ) : (
-              <div className="text-center space-y-6 opacity-40">
-                <Bot size={48} className="mx-auto" />
-                <p className="text-slate-400 font-black uppercase text-[10px] tracking-[0.3em]">AI sẵn sàng phân tích dữ liệu để định hướng cho năm {new Date().getFullYear() + 1}</p>
               </div>
             )}
           </div>
