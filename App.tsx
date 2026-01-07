@@ -12,7 +12,7 @@ import ReferencePage from "./pages/ReferencePage";
 import ResearchPage from "./pages/ResearchPage";
 import ErrorBoundary from "./ErrorBoundary";
 import BatchImportModal from "./components/BatchImportModal";
-import { Initiative, InitiativeLevel, ResearchProject, SettlementStatus, ProjectStatus } from "./types";
+import { Initiative, InitiativeLevel, ResearchProject, SettlementStatus, ProjectStatus, PointConfig } from "./types";
 import { 
   X, LogIn, Mail, Lock, Lightbulb, Building2, Users, Edit, 
   Award, Plus, Search, Paperclip, ExternalLink, Download, FileText, Trash2, Loader2, AlertTriangle,
@@ -33,6 +33,13 @@ const LEVEL_COLORS: Record<string, string> = {
   'EVN': 'bg-rose-700'
 };
 
+const DEFAULT_POINT_CONFIG: PointConfig = {
+  HLH: 1,
+  NPSC: 2,
+  NPC: 3,
+  EVN: 4
+};
+
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'list' | 'stats' | 'chat' | 'bubble' | 'treemap' | 'references' | 'research'>('list');
   const [theme, setTheme] = useState<keyof typeof THEMES>('red');
@@ -44,6 +51,9 @@ const App: React.FC = () => {
   const [editingItem, setEditingItem] = useState<Partial<Initiative> | null>(null);
   const [editingProject, setEditingProject] = useState<Partial<ResearchProject> | null>(null);
   
+  // Point Config State
+  const [pointConfig, setPointConfig] = useState<PointConfig>(DEFAULT_POINT_CONFIG);
+
   // States for raw string inputs (Research Project)
   const [rawAuthors, setRawAuthors] = useState('');
   const [rawMembers, setRawMembers] = useState('');
@@ -87,6 +97,45 @@ const App: React.FC = () => {
     localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
     document.documentElement.classList.toggle('dark', isDarkMode);
   }, [isDarkMode]);
+
+  // Load Point Config from Firebase
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const doc = await db.collection('settings').doc('global_config').get();
+        if (doc.exists && doc.data()?.pointConfig) {
+          setPointConfig(doc.data()?.pointConfig as PointConfig);
+        } else {
+          // Init config if not exists
+          // Note: This might fail if rules are not set up, which is expected for first run
+          try {
+             await db.collection('settings').doc('global_config').set({ pointConfig: DEFAULT_POINT_CONFIG }, { merge: true });
+          } catch (writeErr) {
+             console.warn("Could not init default config (likely permission issue), using local defaults.");
+          }
+        }
+      } catch (e) {
+        console.error("Error fetching point config:", e);
+      }
+    };
+    fetchConfig();
+  }, []);
+
+  const handleSavePointConfig = async (newConfig: PointConfig) => {
+    try {
+      await db.collection('settings').doc('global_config').set({ pointConfig: newConfig }, { merge: true });
+      setPointConfig(newConfig);
+      return true;
+    } catch (e: any) {
+      console.error("Error saving point config:", e);
+      if (e.code === 'permission-denied') {
+        alert("Lỗi quyền truy cập: Bạn cần cập nhật Firestore Rules để cho phép ghi vào collection 'settings'.");
+      } else {
+        alert("Lỗi khi lưu cấu hình điểm: " + e.message);
+      }
+      return false;
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -244,7 +293,7 @@ const App: React.FC = () => {
         <main className="flex-1 p-4 lg:p-10 overflow-y-auto">
           <div className="animate-slide">
             {activeTab === 'list' && <ListPage initiatives={initiatives} activeTheme={activeTheme} user={user} onView={setViewingItem} onEdit={handleEditInitiative} onDelete={(id) => db.collection("initiatives").doc(id).delete()} />}
-            {activeTab === 'stats' && <StatsPage initiatives={initiatives} activeTheme={activeTheme} onViewItem={setViewingItem} />}
+            {activeTab === 'stats' && <StatsPage initiatives={initiatives} activeTheme={activeTheme} onViewItem={setViewingItem} pointConfig={pointConfig} onUpdatePointConfig={handleSavePointConfig} user={user} />}
             {activeTab === 'chat' && <ChatPage initiatives={initiatives} activeTheme={activeTheme} />}
             {activeTab === 'references' && <ReferencePage activeTheme={activeTheme} user={user} />}
             {activeTab === 'research' && <ResearchPage activeTheme={activeTheme} user={user} onEdit={handleEditProject} onAdd={handleAdd} />}
@@ -256,7 +305,7 @@ const App: React.FC = () => {
         {/* MODAL BATCH IMPORT */}
         <BatchImportModal isOpen={isBatchModalOpen} onClose={() => setIsBatchModalOpen(false)} activeTheme={activeTheme} />
 
-        {/* MODAL EDIT PROJECT (Research) - ĐÃ CẬP NHẬT ĐẦY ĐỦ */}
+        {/* MODAL EDIT PROJECT (Research) */}
         {editingProject && (
           <div className="fixed inset-0 z-[1200] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xl">
             <div className="bg-white dark:bg-slate-900 rounded-[3rem] w-full max-w-3xl max-h-[95vh] shadow-2xl flex flex-col overflow-hidden border-4 border-white dark:border-slate-800">
@@ -278,6 +327,7 @@ const App: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* ... other fields ... */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-1"><label className="text-[9px] font-black uppercase text-slate-400 ml-2">Kinh phí (VNĐ)</label><input type="number" className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500/20" value={editingProject.budget} onChange={e => setEditingProject({...editingProject, budget: parseInt(e.target.value)})} /></div>
                     <div className="space-y-1"><label className="text-[9px] font-black uppercase text-slate-400 ml-2">Tiến độ (%)</label><input type="range" min="0" max="100" className="w-full h-10 accent-orange-600" value={editingProject.progress} onChange={e => setEditingProject({...editingProject, progress: parseInt(e.target.value)})} /><p className="text-right text-[10px] font-black text-orange-600 uppercase">{editingProject.progress}% Hoàn thành</p></div>
@@ -332,7 +382,6 @@ const App: React.FC = () => {
 
                   <div className="space-y-1"><label className="text-[9px] font-black uppercase text-slate-400 ml-2">Nội dung tóm tắt</label><textarea rows={5} className="w-full px-6 py-5 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-[2rem] font-bold resize-none dark:text-white outline-none focus:ring-2 focus:ring-orange-500/20" value={editingProject.content} onChange={e => setEditingProject({...editingProject, content: e.target.value})} /></div>
                
-                  {/* Thêm trường Link Hồ Sơ */}
                   <div className="space-y-1">
                      <label className="text-[9px] font-black uppercase text-slate-400 ml-2 flex items-center gap-1"><ExternalLink size={10}/> Link hồ sơ / Thuyết minh (URL)</label>
                      <input 
@@ -351,7 +400,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* MODAL EDIT INITIATIVE (Sáng kiến) - Cải tiến nhập liệu */}
+        {/* MODAL EDIT INITIATIVE (Sáng kiến) */}
         {editingItem && (
           <div className="fixed inset-0 z-[1200] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xl">
              <div className="bg-white dark:bg-slate-900 rounded-[3rem] w-full max-w-3xl max-h-[95vh] shadow-2xl flex flex-col overflow-hidden border-4 border-white dark:border-slate-800">

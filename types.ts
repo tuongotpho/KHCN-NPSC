@@ -1,6 +1,13 @@
 
 export type InitiativeLevel = 'HLH' | 'NPSC' | 'NPC' | 'EVN';
 
+export interface PointConfig {
+  HLH: number;
+  NPSC: number;
+  NPC: number;
+  EVN: number;
+}
+
 export interface Initiative {
   id: string;
   phase: string;

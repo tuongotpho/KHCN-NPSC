@@ -4,29 +4,24 @@ import {
   Zap, Award, Building2, Activity, Calendar, Briefcase, 
   BarChart3, FileText, Loader2, Sparkles, Bot, ChevronLeft, ChevronRight,
   Trophy, Medal, Star, Users, Info, UserCheck, Landmark,
-  ShieldCheck, Flame, TrendingUp, Gem, CheckCircle2, Calculator, ChevronDown, ChevronUp
+  ShieldCheck, Flame, TrendingUp, Gem, CheckCircle2, Calculator, ChevronDown, ChevronUp, Edit3, X, Save
 } from 'lucide-react';
-import { Initiative, InitiativeLevel } from '../types';
+import { Initiative, InitiativeLevel, PointConfig } from '../types';
 import { getAIInstance, AI_SYSTEM_INSTRUCTION } from '../services/aiService';
 
 interface StatsPageProps {
   initiatives: Initiative[];
   activeTheme: any;
   onViewItem: (item: Initiative) => void;
+  pointConfig: PointConfig;
+  onUpdatePointConfig: (config: PointConfig) => Promise<boolean>;
+  user: any;
 }
 
 const ITEMS_PER_PAGE = 5;
 const HOF_LIMIT_EXPANDED = 23; // Giới hạn mới theo yêu cầu
 
-// Hệ số điểm theo cấp độ sáng kiến
-const LEVEL_WEIGHTS: Record<InitiativeLevel, number> = {
-  'HLH': 1,
-  'NPSC': 2,
-  'NPC': 3,
-  'EVN': 4
-};
-
-const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewItem }) => {
+const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewItem, pointConfig, onUpdatePointConfig, user }) => {
   const [statsView, setStatsView] = useState<'level' | 'year' | 'unit' | 'field' | 'author'>('level');
   const [hallOfFameTab, setHallOfFameTab] = useState<'author' | 'unit'>('author');
   const [isHofExpanded, setIsHofExpanded] = useState(false);
@@ -34,6 +29,10 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
   const [currentPage, setCurrentPage] = useState(1);
   const [aiInsight, setAiInsight] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // States for Editing Point Config
+  const [isEditConfigOpen, setIsEditConfigOpen] = useState(false);
+  const [tempConfig, setTempConfig] = useState<PointConfig>(pointConfig);
 
   const dashboardStats = useMemo(() => {
     const total = initiatives.length;
@@ -57,8 +56,9 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
     const unitScores: Record<string, { score: number, count: number, years: Set<number>, hasEVN: boolean }> = {};
 
     initiatives.forEach(item => {
+      // Use dynamic point config
       const maxWeight = item.level && item.level.length > 0 
-        ? Math.max(...item.level.map(l => LEVEL_WEIGHTS[l as InitiativeLevel] || 0))
+        ? Math.max(...item.level.map(l => pointConfig[l as keyof PointConfig] || 0))
         : 1;
       
       const isEVN = item.level?.includes('EVN');
@@ -97,7 +97,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
       authorScores,
       unitScores
     };
-  }, [initiatives]);
+  }, [initiatives, pointConfig]); // Re-calculate when pointConfig changes
 
   // Sắp xếp toàn bộ danh sách
   const allAuthorsSorted = useMemo(() => {
@@ -167,6 +167,11 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
     }
   };
 
+  const handleSaveConfig = async () => {
+    const success = await onUpdatePointConfig(tempConfig);
+    if (success) setIsEditConfigOpen(false);
+  };
+
   return (
     <div className="space-y-10 animate-slide pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -196,7 +201,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
         ))}
       </div>
 
-      {/* Bảng Vàng Vinh Danh - Tối ưu nút xem toàn bộ */}
+      {/* Bảng Vàng Vinh Danh */}
       <div className="bg-slate-950 rounded-[4rem] p-10 lg:p-14 text-white relative overflow-hidden shadow-2xl border border-white/5">
         <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-amber-500/5 rounded-full blur-[120px] -mr-64 -mt-64"></div>
         
@@ -218,7 +223,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
             </div>
 
             <div className="flex flex-wrap items-center gap-4">
-               {/* Toggle View Mode - Đã bỏ số lượng cứng */}
+               {/* Toggle View Mode */}
                <button 
                 onClick={() => setIsHofExpanded(!isHofExpanded)}
                 className={`flex items-center gap-3 px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${isHofExpanded ? 'bg-amber-500 text-slate-950 border-transparent shadow-2xl shadow-amber-500/20' : 'bg-white/5 text-slate-400 border-white/10 hover:border-amber-500/50'}`}
@@ -280,20 +285,30 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
 
           {/* Chú giải cách tính điểm & Danh hiệu */}
           <div className="pt-10 border-t border-white/10 space-y-10">
-            {/* 1. Cách tính điểm */}
+            {/* 1. Cách tính điểm - Dynamic */}
             <div className="space-y-6">
-              <div className="flex items-center gap-3 px-2">
-                <Calculator size={18} className="text-amber-500"/>
-                <h5 className="text-[11px] font-black uppercase tracking-[0.2em] text-white">Cơ chế tính điểm tích lũy</h5>
-                <div className="flex-1 h-px bg-white/5"></div>
-                <p className="text-[9px] font-bold text-slate-500 italic">Áp dụng cho cả {hallOfFameTab === 'author' ? 'Tác giả' : 'Đơn vị'}</p>
+              <div className="flex items-center justify-between px-2">
+                <div className="flex items-center gap-3">
+                    <Calculator size={18} className="text-amber-500"/>
+                    <h5 className="text-[11px] font-black uppercase tracking-[0.2em] text-white">Cơ chế tính điểm tích lũy</h5>
+                    <div className="w-10 h-px bg-white/5"></div>
+                    <p className="text-[9px] font-bold text-slate-500 italic hidden md:block">Áp dụng cho cả {hallOfFameTab === 'author' ? 'Tác giả' : 'Đơn vị'}</p>
+                </div>
+                {user && (
+                    <button 
+                        onClick={() => { setTempConfig(pointConfig); setIsEditConfigOpen(true); }}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[9px] font-black uppercase text-amber-500 transition-colors"
+                    >
+                        <Edit3 size={10} /> Cấu hình điểm
+                    </button>
+                )}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                  { label: 'HLH', pts: 1, desc: 'Hợp lý hóa', color: 'border-slate-500/20 bg-slate-500/5' },
-                  { label: 'NPSC', pts: 2, desc: 'Cấp Công ty', color: 'border-red-500/20 bg-red-500/5' },
-                  { label: 'NPC', pts: 3, desc: 'Cấp Tổng công ty', color: 'border-orange-500/20 bg-orange-500/5' },
-                  { label: 'EVN', pts: 4, desc: 'Cấp Tập đoàn', color: 'border-rose-500/20 bg-rose-500/5' }
+                  { label: 'HLH', pts: pointConfig.HLH, desc: 'Hợp lý hóa', color: 'border-slate-500/20 bg-slate-500/5' },
+                  { label: 'NPSC', pts: pointConfig.NPSC, desc: 'Cấp Công ty', color: 'border-red-500/20 bg-red-500/5' },
+                  { label: 'NPC', pts: pointConfig.NPC, desc: 'Cấp Tổng công ty', color: 'border-orange-500/20 bg-orange-500/5' },
+                  { label: 'EVN', pts: pointConfig.EVN, desc: 'Cấp Tập đoàn', color: 'border-rose-500/20 bg-rose-500/5' }
                 ].map(rule => (
                   <div key={rule.label} className={`p-4 rounded-2xl border ${rule.color} flex flex-col items-center gap-1 group hover:border-amber-500/50 transition-all`}>
                     <span className="text-[10px] font-black text-white mb-1">{rule.label}</span>
@@ -477,6 +492,38 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
           </div>
         </div>
       </div>
+
+      {/* Edit Point Config Modal */}
+      {isEditConfigOpen && (
+        <div className="fixed inset-0 z-[1200] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xl">
+           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-lg p-8 shadow-2xl relative overflow-hidden border-4 border-white dark:border-slate-800">
+              <div className="flex items-center justify-between mb-8 border-b dark:border-slate-800 pb-4">
+                 <h3 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3"><Edit3 size={24}/> Cấu hình điểm số</h3>
+                 <button onClick={() => setIsEditConfigOpen(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"><X size={20}/></button>
+              </div>
+              <div className="space-y-6">
+                {(['HLH', 'NPSC', 'NPC', 'EVN'] as (keyof PointConfig)[]).map((level) => (
+                    <div key={level} className="space-y-2">
+                        <label className="text-xs font-black uppercase text-slate-400">{level} - {level === 'HLH' ? 'Hợp lý hóa' : level === 'NPSC' ? 'Cấp Công ty' : level === 'NPC' ? 'Cấp Tổng Cty' : 'Cấp Tập đoàn'}</label>
+                        <div className="relative">
+                            <input 
+                                type="number" 
+                                className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl font-black text-xl outline-none focus:ring-2 focus:ring-orange-500/20"
+                                value={tempConfig[level]}
+                                onChange={(e) => setTempConfig({...tempConfig, [level]: parseInt(e.target.value) || 0})}
+                            />
+                            <span className="absolute right-6 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 uppercase">Điểm</span>
+                        </div>
+                    </div>
+                ))}
+              </div>
+              <div className="mt-8 flex gap-4">
+                 <button onClick={() => setIsEditConfigOpen(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 rounded-2xl font-black uppercase text-xs text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Hủy bỏ</button>
+                 <button onClick={handleSaveConfig} className="flex-[2] py-4 bg-orange-600 text-white rounded-2xl font-black uppercase text-xs shadow-lg hover:bg-orange-700 transition-colors flex items-center justify-center gap-2"><Save size={16}/> Lưu thay đổi</button>
+              </div>
+           </div>
+        </div>
+      )}
     </div>
   );
 };
