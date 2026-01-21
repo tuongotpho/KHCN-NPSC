@@ -51,7 +51,8 @@ const BatchImportModal: React.FC<BatchImportModalProps> = ({ isOpen, onClose, ac
             unit: item.unit || [],
             year: item.year || new Date().getFullYear(),
             content: item.content || "",
-            field: item.field || "Khác",
+            // Đảm bảo field là mảng
+            field: Array.isArray(item.field) ? item.field : (item.field ? [item.field] : []),
             level: item.level || ["HLH"]
           }));
 

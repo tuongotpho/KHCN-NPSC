@@ -37,7 +37,11 @@ const initiativeSchema = {
       },
       year: { type: Type.INTEGER, description: "Năm công nhận" },
       content: { type: Type.STRING, description: "Tóm tắt ngắn gọn nội dung giải pháp" },
-      field: { type: Type.STRING, description: "Lĩnh vực chuyên môn" },
+      field: { 
+        type: Type.ARRAY, 
+        items: { type: Type.STRING },
+        description: "Lĩnh vực chuyên môn"
+      },
       level: { 
         type: Type.ARRAY,
         items: { type: Type.STRING, enum: ["HLH", "NPSC", "NPC", "EVN"] },

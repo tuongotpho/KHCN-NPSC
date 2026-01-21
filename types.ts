@@ -18,9 +18,10 @@ export interface Initiative {
   authors: string[];
   unit: string[];
   result: string;
-  field: string;
+  field: string[]; // Đổi thành mảng string
   reward: string;
   level: InitiativeLevel[];
+  isScalable?: boolean;
   attachmentName?: string;
   attachmentUrl?: string;
   driveLink?: string; 
@@ -60,9 +61,9 @@ export interface BatchItem {
   unit: string[];
   year: number;
   content: string;
-  field: string;
+  field: string[]; // Đổi thành mảng string
   level: InitiativeLevel[];
-  similarity?: SimilarityInfo; // Thông tin trùng lặp
+  similarity?: SimilarityInfo;
 }
 
 export interface ChatMessage {
