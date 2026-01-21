@@ -137,7 +137,11 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
         const units = Array.isArray(i.unit) ? i.unit : (i.unit ? [i.unit] : []);
         return units.includes(statsDetailValue as string);
       }
-      if (statsView === 'field') return (i.field || 'Khác') === statsDetailValue;
+      if (statsView === 'field') {
+        // Fix TS2367: i.field is string[], statsDetailValue is string. Use includes instead of ===
+        const fields = Array.isArray(i.field) ? i.field : (i.field ? [i.field as string] : []);
+        return fields.includes(statsDetailValue as string);
+      }
       if (statsView === 'author') return i.authors?.some(a => a.trim() === statsDetailValue);
       return false;
     });
