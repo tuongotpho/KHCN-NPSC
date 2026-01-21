@@ -46,6 +46,7 @@ const INITIATIVE_FIELDS = [
   'Thí nghiệm điện',
   'Tư vấn',
   'CNTT',
+  'SC MBA',
   'Giải pháp',
   'Hành chính'
 ];
