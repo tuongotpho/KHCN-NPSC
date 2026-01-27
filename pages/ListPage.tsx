@@ -218,21 +218,26 @@ const ListPage: React.FC<ListPageProps> = ({ initiatives, activeTheme, user, onV
   };
 
   // --- DATA PREPARATION FOR DROPDOWNS ---
+  // Updated: Filter out options with 0 count unless they are currently selected
 
   const levelOptions = useMemo(() => {
     const counts = getFacetedCounts('level');
-    return (['HLH', 'NPSC', 'NPC', 'EVN'] as InitiativeLevel[]).map(l => ({
-      value: l, label: l, count: counts[l] || 0
-    }));
-  }, [initiatives, selectedYears, selectedUnits, selectedFields, showScalableOnly]);
+    return (['HLH', 'NPSC', 'NPC', 'EVN'] as InitiativeLevel[])
+      .map(l => ({
+        value: l, label: l, count: counts[l] || 0
+      }))
+      .filter(opt => opt.count > 0 || selectedLevels.includes(opt.value));
+  }, [initiatives, selectedYears, selectedUnits, selectedFields, showScalableOnly, selectedLevels]);
 
   const yearOptions = useMemo(() => {
     const counts = getFacetedCounts('year');
     const allYears = Array.from(new Set(initiatives.map(i => i.year))).sort((a, b) => (b as number) - (a as number));
-    return allYears.map(y => ({
-      value: y, label: y.toString(), count: counts[String(y)] || 0
-    }));
-  }, [initiatives, selectedLevels, selectedUnits, selectedFields, showScalableOnly]);
+    return allYears
+      .map(y => ({
+        value: y, label: y.toString(), count: counts[String(y)] || 0
+      }))
+      .filter(opt => opt.count > 0 || selectedYears.includes(opt.value));
+  }, [initiatives, selectedLevels, selectedUnits, selectedFields, showScalableOnly, selectedYears]);
 
   const unitOptions = useMemo(() => {
     const counts = getFacetedCounts('unit');
@@ -241,10 +246,12 @@ const ListPage: React.FC<ListPageProps> = ({ initiatives, activeTheme, user, onV
        const us = Array.isArray(i.unit) ? i.unit : (i.unit ? [i.unit] : []);
        us.forEach(u => allUnits.add(u));
     });
-    return Array.from(allUnits).sort().map(u => ({
-      value: u, label: u, count: counts[u] || 0
-    }));
-  }, [initiatives, selectedLevels, selectedYears, selectedFields, showScalableOnly]);
+    return Array.from(allUnits).sort()
+      .map(u => ({
+        value: u, label: u, count: counts[u] || 0
+      }))
+      .filter(opt => opt.count > 0 || selectedUnits.includes(opt.value));
+  }, [initiatives, selectedLevels, selectedYears, selectedFields, showScalableOnly, selectedUnits]);
 
   const fieldOptions = useMemo(() => {
     const counts = getFacetedCounts('field');
@@ -253,10 +260,12 @@ const ListPage: React.FC<ListPageProps> = ({ initiatives, activeTheme, user, onV
         const fs = Array.isArray(i.field) ? i.field : (i.field ? [i.field as string] : []);
         fs.forEach(f => allFields.add(f));
     });
-    return Array.from(allFields).sort().map(f => ({
-      value: f, label: f, count: counts[f] || 0
-    }));
-  }, [initiatives, selectedLevels, selectedYears, selectedUnits, showScalableOnly]);
+    return Array.from(allFields).sort()
+      .map(f => ({
+        value: f, label: f, count: counts[f] || 0
+      }))
+      .filter(opt => opt.count > 0 || selectedFields.includes(opt.value));
+  }, [initiatives, selectedLevels, selectedYears, selectedUnits, showScalableOnly, selectedFields]);
 
 
   // --- MAIN FILTER LOGIC ---

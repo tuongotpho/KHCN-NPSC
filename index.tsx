@@ -3,11 +3,12 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import ErrorBoundary from './ErrorBoundary';
+import { AppProvider } from './contexts/AppContext';
+import { ModalProvider } from './contexts/ModalContext';
 
 // Global handler for unhandled promise rejections (often API calls)
 window.addEventListener('unhandledrejection', (event) => {
   console.error('Unhandled Rejection:', event.reason);
-  // Optional: Add logic to show a global notification toast
 });
 
 const rootElement = document.getElementById('root');
@@ -19,7 +20,11 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <ErrorBoundary>
-      <App />
+      <AppProvider>
+        <ModalProvider>
+          <App />
+        </ModalProvider>
+      </AppProvider>
     </ErrorBoundary>
   </React.StrictMode>
 );

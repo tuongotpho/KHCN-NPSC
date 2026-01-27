@@ -1,29 +1,38 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Hàm kiểm tra người dùng đã đăng nhập (Admin)
+    // Hàm tiện ích kiểm tra đăng nhập
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // 1. Collection Sáng kiến
+    // 1. Quy tắc cho kho sáng kiến (Chính thức)
     match /initiatives/{document=**} {
-      allow read: if true;
-      allow write: if isAuthenticated();
+      allow read: if true; // Ai cũng xem được
+      allow write: if isAuthenticated(); // Chỉ Admin sửa
     }
 
-    // 2. Collection Đề tài KHCN
+    // 2. Quy tắc cho danh mục đề tài KHCN
     match /research_projects/{document=**} {
       allow read: if true;
       allow write: if isAuthenticated();
     }
 
-    // 3. Collection Cấu hình (MỚI)
-    // Bắt buộc phải có để tính năng tính điểm động hoạt động
+    // 3. Quy tắc cho Cấu hình hệ thống
     match /settings/{document=**} {
-      allow read: if true; // Cho phép public đọc để tính điểm hiển thị
-      allow write: if isAuthenticated(); // Chỉ cho phép Admin ghi đè cấu hình
+      allow read: if true; 
+      allow write: if isAuthenticated();
+    }
+
+    // 4. QUY TẮC MỚI: Sáng kiến chờ duyệt
+    match /pending_initiatives/{document=**} {
+      // Cho phép BẤT KỲ AI cũng có thể tạo (Gửi đơn đăng ký)
+      allow create: if true;
+      
+      // Nhưng chỉ Admin mới được xem danh sách, sửa hoặc xóa
+      allow read, update, delete: if isAuthenticated();
     }
   }
 }

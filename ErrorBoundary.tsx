@@ -1,4 +1,5 @@
-import React, { ErrorInfo, ReactNode } from 'react';
+
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertCircle, RefreshCcw, Home } from 'lucide-react';
 
 interface Props {
@@ -14,7 +15,7 @@ interface State {
 /**
  * ErrorBoundary component to catch and handle runtime errors gracefully.
  */
-class ErrorBoundary extends React.Component<Props, State> {
+class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
     this.state = {
@@ -32,7 +33,7 @@ class ErrorBoundary extends React.Component<Props, State> {
   }
 
   // Use arrow function to preserve 'this' context when calling inherited setState.
-  private handleReset = () => {
+  public handleReset = () => {
     this.setState({ hasError: false, error: null });
     window.location.reload();
   };
