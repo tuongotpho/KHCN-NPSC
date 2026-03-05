@@ -24,8 +24,13 @@ Tài liệu này hướng dẫn cách triển khai một bản sao của ứng d
 
 ## Các bước triển khai lên Vercel
 
-1. **Fork/Clone mã nguồn:** 
-   Công ty (hoặc admin triển khai) tạo một tài khoản Vercel và kết nối với repository GitHub chứa mã nguồn ứng dụng này. Đảm bảo rằng mỗi khi code chính được cập nhật trên repo gốc, các project Vercel được link tới đó cũng sẽ tự động build lại (nếu chung config).
+1. **Fork/Clone mã nguồn (Import vào Vercel):** 
+   Công ty (hoặc admin triển khai) tạo một tài khoản Vercel. Tại trang chủ (Dashboard) của Vercel:
+   - Nhấn **"Add New"** > **"Project"**.
+   - Phía dưới màn hình, tìm phần **"Import Third-Party Git Repository"**.
+   - Dán nguyên đường link GitHub này vào ô nhập liệu: `https://github.com/tuongotpho/KHCN-NPSC`
+   - Nhấn **Deploy/Import**.
+   *(Lưu ý: Bằng cách này, mỗi khi source code chính được cập nhật trên repo gốc, các project Vercel được link tới đó cũng sẽ tự động build lại nếu dùng chung config).*
 
 2. **Cấu hình Environment Variables:**
    Trong trang quản trị của project trên Vercel, chọn **Settings** > **Environment Variables**. Thêm các biến môi trường sau dựa trên thông tin đã lấy ở phần Chuẩn bị:

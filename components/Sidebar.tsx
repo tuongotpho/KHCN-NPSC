@@ -108,7 +108,6 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
             <div className="p-2 rounded-2xl bg-emerald-900/10 border border-emerald-900/30 space-y-1">
               {renderNavButton({ id: 'approvals', label: 'Duyệt bài', icon: ClipboardCheck })}
-              {renderNavButton({ id: 'admin', label: 'Cấu hình Firebase', icon: Building2 })}
             </div>
           </div>
         )}
