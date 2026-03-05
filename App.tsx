@@ -12,6 +12,7 @@ import ReferencePage from "./pages/ReferencePage";
 import ResearchPage from "./pages/ResearchPage";
 import RegisterPage from "./pages/RegisterPage";
 import ApprovalPage from "./pages/ApprovalPage";
+import AdminConfigPage from "./pages/AdminConfigPage";
 import ErrorBoundary from "./ErrorBoundary";
 import BatchImportModal from "./components/BatchImportModal";
 import SecurityAuditModal from "./components/SecurityAuditModal";
@@ -28,7 +29,7 @@ const App: React.FC = () => {
     activeTab, setActiveTab, 
     theme, setTheme, activeTheme, 
     isDarkMode, setIsDarkMode, 
-    user, 
+    user, companyId,
     currentScope, setCurrentScope,
     pointConfig, savePointConfig
   } = useApp();
@@ -67,13 +68,38 @@ const App: React.FC = () => {
           <div className="animate-slide">
             {activeTab === 'register' && <RegisterPage activeTheme={activeTheme} />}
             {activeTab === 'approvals' && <ApprovalPage activeTheme={activeTheme} />}
-            {activeTab === 'list' && <ListPage initiatives={displayInitiatives} activeTheme={activeTheme} user={user} onView={openViewInitiative} onEdit={openEditInitiative} onDelete={(id) => db.collection("initiatives").doc(id).delete()} />}
+            {activeTab === 'admin' && <AdminConfigPage activeTheme={activeTheme} />}
+            {activeTab === 'list' && <ListPage initiatives={displayInitiatives} activeTheme={activeTheme} user={user} onView={openViewInitiative} onEdit={openEditInitiative} onDelete={async (id) => {
+              if (!confirm('Xác nhận xóa?')) return;
+              const doc = await db.collection("initiatives").doc(id).get();
+              if (doc.exists && doc.data()?.companyId === companyId) {
+                await doc.ref.delete();
+              } else {
+                alert("Không có quyền xóa hoặc đề tài không tồn tại.");
+              }
+            }} />}
             {activeTab === 'stats' && <StatsPage initiatives={displayInitiatives} activeTheme={activeTheme} onViewItem={openViewInitiative} pointConfig={pointConfig} onUpdatePointConfig={savePointConfig} user={user} />}
             {activeTab === 'chat' && <ChatPage initiatives={displayInitiatives} activeTheme={activeTheme} />}
             {activeTab === 'references' && <ReferencePage activeTheme={activeTheme} user={user} />}
             {activeTab === 'research' && <ResearchPage activeTheme={activeTheme} user={user} onEdit={openEditProject} onAdd={openEditProject} />}
-            {activeTab === 'bubble' && <BubblePage initiatives={displayInitiatives} activeTheme={activeTheme} user={user} onView={openViewInitiative} onEdit={openEditInitiative} onDelete={(id) => db.collection("initiatives").doc(id).delete()} />}
-            {activeTab === 'treemap' && <TreeMapPage initiatives={displayInitiatives} activeTheme={activeTheme} user={user} onView={openViewInitiative} onEdit={openEditInitiative} onDelete={(id) => db.collection("initiatives").doc(id).delete()} />}
+            {activeTab === 'bubble' && <BubblePage initiatives={displayInitiatives} activeTheme={activeTheme} user={user} onView={openViewInitiative} onEdit={openEditInitiative} onDelete={async (id) => {
+              if (!confirm('Xác nhận xóa?')) return;
+              const doc = await db.collection("initiatives").doc(id).get();
+              if (doc.exists && doc.data()?.companyId === companyId) {
+                await doc.ref.delete();
+              } else {
+                alert("Không có quyền xóa hoặc đề tài không tồn tại.");
+              }
+            }} />}
+            {activeTab === 'treemap' && <TreeMapPage initiatives={displayInitiatives} activeTheme={activeTheme} user={user} onView={openViewInitiative} onEdit={openEditInitiative} onDelete={async (id) => {
+              if (!confirm('Xác nhận xóa?')) return;
+              const doc = await db.collection("initiatives").doc(id).get();
+              if (doc.exists && doc.data()?.companyId === companyId) {
+                await doc.ref.delete();
+              } else {
+                alert("Không có quyền xóa hoặc đề tài không tồn tại.");
+              }
+            }} />}
           </div>
         </main>
 

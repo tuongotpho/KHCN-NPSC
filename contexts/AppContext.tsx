@@ -1,7 +1,8 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { auth, db } from '../services/firebase';
-import { InitiativeScope, PointConfig } from '../types';
+import { auth, db, initFirebase, onFirebaseInit, getClientConfig } from '../services/firebase';
+import { masterDb } from '../services/firebaseMaster';
+import { InitiativeScope, PointConfig, UserRole, UserProfile } from '../types';
 
 // Định nghĩa Theme
 export const THEMES = {
@@ -14,10 +15,12 @@ export const THEMES = {
 export const DEFAULT_POINT_CONFIG: PointConfig = { HLH: 1, NPSC: 2, NPC: 3, EVN: 4 };
 
 type ThemeKey = keyof typeof THEMES;
-type TabType = 'list' | 'stats' | 'chat' | 'bubble' | 'treemap' | 'references' | 'research' | 'register' | 'approvals';
+type TabType = 'list' | 'stats' | 'chat' | 'bubble' | 'treemap' | 'references' | 'research' | 'register' | 'approvals' | 'admin';
 
 interface AppContextType {
   user: any;
+  userProfile: UserProfile | null;
+  companyId: string | null; // MỚI: Định danh công ty
   activeTab: TabType;
   setActiveTab: (tab: TabType) => void;
   theme: ThemeKey;
@@ -30,22 +33,95 @@ interface AppContextType {
   pointConfig: PointConfig;
   setPointConfig: (config: PointConfig) => void;
   savePointConfig: (config: PointConfig) => Promise<boolean>;
+  geminiApiKey: string | null;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [companyId, setCompanyId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('list');
   const [theme, setTheme] = useState<ThemeKey>('red');
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
   const [currentScope, setCurrentScope] = useState<InitiativeScope>('Company');
   const [pointConfig, setPointConfig] = useState<PointConfig>(DEFAULT_POINT_CONFIG);
+  const [geminiApiKey, setGeminiApiKey] = useState<string | null>(null);
+  const [fbVersion, setFbVersion] = useState(0);
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(setUser);
-    return unsubscribe;
+    const unsubscribeInit = onFirebaseInit(() => {
+      setFbVersion(v => v + 1);
+      const config = getClientConfig();
+      if (config?.geminiApiKey) {
+        setGeminiApiKey(config.geminiApiKey);
+      } else {
+        setGeminiApiKey(null);
+      }
+    });
+    return unsubscribeInit;
   }, []);
+
+  useEffect(() => {
+    if (!auth) return;
+    const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
+      console.log("Auth State Changed:", firebaseUser?.email);
+      setUser(firebaseUser);
+      
+      if (firebaseUser) {
+        const email = firebaseUser.email;
+        if (email) {
+          try {
+            // 1. Luôn lấy profile từ Master Project trước để kiểm tra Role
+            const profileDoc = await masterDb.collection('users').doc(firebaseUser.uid).get();
+            let role: UserRole = 'user';
+            
+            if (profileDoc.exists) {
+              const data = profileDoc.data() as UserProfile;
+              role = data.role || 'user';
+              setUserProfile(data);
+            } else {
+              // Nếu chưa có profile, mặc định là user hoặc check email cứng
+              const masterEmails = ['vietthanh228@gmail.com', 'admin@master.com'];
+              role = masterEmails.includes(email) ? 'master_admin' : 'user';
+              setUserProfile({ uid: firebaseUser.uid, email, role });
+            }
+
+            // 2. Nếu là Master Admin, ở lại Master Project
+            if (role === 'master_admin') {
+              if (companyId !== 'master') {
+                await initFirebase('master');
+                setCompanyId('master');
+              }
+            } else {
+              // 3. Nếu không phải Master Admin, thử kết nối tới Firebase riêng của họ
+              if (companyId !== email) {
+                try {
+                  await initFirebase(email);
+                  setCompanyId(email);
+                } catch (e) {
+                  console.warn("Could not auto-init firebase for email:", email, e);
+                  await initFirebase('master');
+                  setCompanyId('master');
+                }
+              }
+            }
+          } catch (e: any) {
+            console.error("Auth state change error:", e);
+            if (companyId !== 'master') {
+              await initFirebase('master');
+              setCompanyId('master');
+            }
+          }
+        }
+      } else {
+        setCompanyId(null);
+        setUserProfile(null);
+      }
+    });
+    return unsubscribe;
+  }, [fbVersion]);
 
   useEffect(() => {
     localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
@@ -55,6 +131,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Load Point Config
   useEffect(() => {
     const fetchConfig = async () => {
+      // Wait for db to be initialized
+      let retries = 0;
+      while (!db && retries < 10) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        retries++;
+      }
+      if (!db) return;
+
       try {
         const doc = await db.collection('settings').doc('global_config').get();
         if (doc.exists && doc.data()?.pointConfig) {
@@ -81,12 +165,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const value = {
     user,
+    userProfile,
+    companyId, // MỚI
     activeTab, setActiveTab,
     theme, setTheme,
     activeTheme: THEMES[theme],
     isDarkMode, setIsDarkMode,
     currentScope, setCurrentScope,
-    pointConfig, setPointConfig, savePointConfig
+    pointConfig, setPointConfig, savePointConfig,
+    geminiApiKey
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

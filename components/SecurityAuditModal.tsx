@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { X, ShieldCheck, Lock, Database, Activity, Server, FileCode2, Eye, EyeOff, Globe, Wifi, RefreshCw, CheckCircle2, Play, AlertTriangle, Microscope, Search } from 'lucide-react';
 import { db } from '../services/firebase';
 import { generateEmbedding } from '../services/aiService';
+import { useApp } from '../contexts/AppContext';
 
 interface SecurityAuditModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface SecurityAuditModalProps {
 }
 
 const SecurityAuditModal: React.FC<SecurityAuditModalProps> = ({ isOpen, onClose, activeTheme, user }) => {
+  const { geminiApiKey } = useApp();
   const [logs, setLogs] = useState<string[]>([]);
   
   // Migration State
@@ -53,7 +55,13 @@ const SecurityAuditModal: React.FC<SecurityAuditModalProps> = ({ isOpen, onClose
 
   const checkVectorStats = async () => {
       try {
-          const snapshot = await db.collection('initiatives').get();
+          const tokenResult = await user.getIdTokenResult();
+          const companyId = tokenResult.claims.companyId;
+          
+          const snapshot = await db.collection('initiatives')
+            .where('companyId', '==', companyId)
+            .get();
+            
           setTotalDocs(snapshot.size);
           let hasVector = 0;
           snapshot.forEach(doc => {
@@ -75,7 +83,13 @@ const SecurityAuditModal: React.FC<SecurityAuditModalProps> = ({ isOpen, onClose
       setVerifyStatus('checking');
       setVerifyMessage("Đang trích xuất ngẫu nhiên 1 hồ sơ từ CSDL...");
       try {
-          const snapshot = await db.collection('initiatives').get();
+          const tokenResult = await user.getIdTokenResult();
+          const companyId = tokenResult.claims.companyId;
+
+          const snapshot = await db.collection('initiatives')
+            .where('companyId', '==', companyId)
+            .get();
+            
           if (snapshot.empty) {
               setVerifyStatus('invalid');
               setVerifyMessage("Kho dữ liệu trống.");
@@ -107,7 +121,13 @@ const SecurityAuditModal: React.FC<SecurityAuditModalProps> = ({ isOpen, onClose
       setProcessedDocs(0);
       
       try {
-          const snapshot = await db.collection('initiatives').get();
+          const tokenResult = await user.getIdTokenResult();
+          const companyId = tokenResult.claims.companyId;
+
+          const snapshot = await db.collection('initiatives')
+            .where('companyId', '==', companyId)
+            .get();
+            
           const docsToProcess: any[] = [];
           
           snapshot.forEach(doc => {
@@ -129,7 +149,7 @@ const SecurityAuditModal: React.FC<SecurityAuditModalProps> = ({ isOpen, onClose
               const textToEmbed = `${doc.title} ${doc.content || ''}`;
               
               try {
-                  const vector = await generateEmbedding(textToEmbed);
+                  const vector = await generateEmbedding(textToEmbed, geminiApiKey);
                   await db.collection('initiatives').doc(doc.id).update({
                       embedding_field: vector
                   });

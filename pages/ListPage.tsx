@@ -358,7 +358,7 @@ const ListPage: React.FC<ListPageProps> = ({ initiatives, activeTheme, user, onV
         // Position below top margin (10mm)
         doc.setFontSize(18);
         doc.setTextColor(234, 88, 12); // Orange-600
-        doc.text("BÁO CÁO SÁNG KIẾN - NPSC", 148.5, 18, { align: "center" });
+        doc.text("BÁO CÁO SÁNG KIẾN - NPC-Innovation", 148.5, 18, { align: "center" });
         
         doc.setFontSize(10);
         doc.setTextColor(100);
@@ -428,7 +428,7 @@ const ListPage: React.FC<ListPageProps> = ({ initiatives, activeTheme, user, onV
         });
 
         // 7. Save
-        doc.save(`Bao_Cao_Sang_Kien_NPSC_${new Date().getFullYear()}.pdf`);
+        doc.save(`Bao_Cao_Sang_Kien_NPC-Innovation_${new Date().getFullYear()}.pdf`);
         setIsExporting(false);
       };
       

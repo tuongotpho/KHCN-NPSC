@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { FileText, Download, Trash2, Plus, X, UploadCloud, Search, File, FileSpreadsheet, FileIcon, AlertTriangle, ShieldCheck, Globe, Lock } from 'lucide-react';
 import { db, storage, auth } from '../services/firebase';
 import { ReferenceDocument } from '../types';
+import { useApp } from '../contexts/AppContext';
 
 interface ReferencePageProps {
   activeTheme: any;
@@ -11,6 +12,7 @@ interface ReferencePageProps {
 
 const ReferencePage: React.FC<ReferencePageProps> = ({ activeTheme, user }) => {
   const [documents, setDocuments] = useState<ReferenceDocument[]>([]);
+  const { companyId } = useApp(); // MỚI
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isPermissionError, setIsPermissionError] = useState(false);
@@ -30,31 +32,38 @@ const ReferencePage: React.FC<ReferencePageProps> = ({ activeTheme, user }) => {
   const referencesRef = db.collection('initiatives').doc('global_storage').collection('files');
 
   useEffect(() => {
+    if (!companyId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     // Use the nested path
-    const unsubscribe = referencesRef.orderBy('uploadDate', 'desc').onSnapshot(
-      snapshot => {
-        const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ReferenceDocument));
-        setDocuments(docs);
-        setLoading(false);
-        setError(null);
-        setIsPermissionError(false);
-      },
-      (err: any) => {
-        setLoading(false);
-        if (err.code === 'permission-denied') {
-          console.warn("ReferencePage: Access denied (permission-denied). User might need to login.");
-          setError("Bạn không có quyền truy cập dữ liệu này. Vui lòng đăng nhập để xem.");
-          setIsPermissionError(true);
-        } else {
-          console.error("ReferencePage Firestore Error:", err);
-          setError("Không thể tải dữ liệu. Vui lòng kiểm tra kết nối mạng.");
+    const unsubscribe = referencesRef
+      .where('companyId', '==', companyId) // MỚI
+      .orderBy('uploadDate', 'desc')
+      .onSnapshot(
+        snapshot => {
+          const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ReferenceDocument));
+          setDocuments(docs);
+          setLoading(false);
+          setError(null);
           setIsPermissionError(false);
+        },
+        (err: any) => {
+          setLoading(false);
+          if (err.code === 'permission-denied') {
+            console.warn("ReferencePage: Access denied (permission-denied). User might need to login.");
+            setError("Bạn không có quyền truy cập dữ liệu này. Vui lòng đăng nhập để xem.");
+            setIsPermissionError(true);
+          } else {
+            console.error("ReferencePage Firestore Error:", err);
+            setError("Không thể tải dữ liệu. Vui lòng kiểm tra kết nối mạng.");
+            setIsPermissionError(false);
+          }
         }
-      }
-    );
+      );
     return unsubscribe;
-  }, [user]);
+  }, [user, companyId]); // MỚI
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -64,6 +73,7 @@ const ReferencePage: React.FC<ReferencePageProps> = ({ activeTheme, user }) => {
 
   const handleUpload = async () => {
     if (!selectedFile || !title) return alert('Vui lòng nhập tiêu đề và chọn file');
+    if (!companyId) return alert('Lỗi: Không xác định được công ty của bạn.'); // MỚI
     
     // Check both prop and current auth instance
     const currentUser = auth.currentUser || user;
@@ -105,6 +115,7 @@ const ReferencePage: React.FC<ReferencePageProps> = ({ activeTheme, user }) => {
           try {
             const downloadURL = await uploadTask.snapshot.ref.getDownloadURL();
             const newDoc: Omit<ReferenceDocument, 'id'> = {
+              companyId, // MỚI
               title,
               description,
               fileName: selectedFile.name, // Keep original name for display

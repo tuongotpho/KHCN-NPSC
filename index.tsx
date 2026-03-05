@@ -16,15 +16,20 @@ if (!rootElement) {
   throw new Error("Could not find root element to mount to");
 }
 
-const root = ReactDOM.createRoot(rootElement);
-root.render(
-  <React.StrictMode>
-    <ErrorBoundary>
-      <AppProvider>
-        <ModalProvider>
-          <App />
-        </ModalProvider>
-      </AppProvider>
-    </ErrorBoundary>
-  </React.StrictMode>
-);
+import { initFirebase } from './services/firebase';
+
+// Initialize with Master Project (default)
+initFirebase('master').then(() => {
+  const root = ReactDOM.createRoot(rootElement);
+  root.render(
+    <React.StrictMode>
+      <ErrorBoundary>
+        <AppProvider>
+          <ModalProvider>
+            <App />
+          </ModalProvider>
+        </AppProvider>
+      </ErrorBoundary>
+    </React.StrictMode>
+  );
+});

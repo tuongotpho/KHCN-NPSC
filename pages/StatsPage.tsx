@@ -177,7 +177,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
         logging: false
       });
       const link = document.createElement('a');
-      link.download = `Bang_Vang_NPSC_${new Date().getFullYear()}.png`;
+      link.download = `Bang_Vang_NPC-Innovation_${new Date().getFullYear()}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
     } catch (err) {
@@ -343,7 +343,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
                   { label: 'HLH', pts: pointConfig.HLH, desc: 'Hợp lý hóa', color: 'border-slate-500/20 bg-slate-500/5' },
-                  { label: 'NPSC', pts: pointConfig.NPSC, desc: 'Cấp Công ty', color: 'border-red-500/20 bg-red-500/5' },
+                  { label: 'Cấp công ty', pts: pointConfig.NPSC, desc: 'Cấp Công ty', color: 'border-red-500/20 bg-red-500/5' },
                   { label: 'NPC', pts: pointConfig.NPC, desc: 'Cấp Tổng công ty', color: 'border-orange-500/20 bg-orange-500/5' },
                   { label: 'EVN', pts: pointConfig.EVN, desc: 'Cấp Tập đoàn', color: 'border-rose-500/20 bg-rose-500/5' }
                 ].map(rule => (
@@ -506,7 +506,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ initiatives, activeTheme, onViewI
               <div className="space-y-6">
                 {(['HLH', 'NPSC', 'NPC', 'EVN'] as (keyof PointConfig)[]).map((level) => (
                     <div key={level} className="space-y-2">
-                        <label className="text-xs font-black uppercase text-slate-400">{level} - {level === 'HLH' ? 'Hợp lý hóa' : level === 'NPSC' ? 'Cấp Công ty' : level === 'NPC' ? 'Cấp Tổng Cty' : 'Cấp Tập đoàn'}</label>
+                        <label className="text-xs font-black uppercase text-slate-400">{level} - {level === 'HLH' ? 'Hợp lý hóa' : level === 'NPSC' ? 'Cấp công ty' : level === 'NPC' ? 'Cấp Tổng Cty' : 'Cấp Tập đoàn'}</label>
                         <div className="relative">
                             <input 
                                 type="number" 

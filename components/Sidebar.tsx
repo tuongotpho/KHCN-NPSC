@@ -2,6 +2,7 @@
 import React from 'react';
 import { LayoutDashboard, BarChart3, Bot, LogOut, BrainCircuit, Sun, Moon, Palette, Plus, FileUp, LogIn, Disc, LayoutGrid, BookOpen, Microscope, Zap, FolderSearch, FilePenLine, ClipboardCheck, ShieldCheck, Globe, Building2 } from 'lucide-react';
 import { InitiativeLevel, InitiativeScope } from '../types';
+import { useApp } from '../contexts/AppContext';
 
 interface SidebarProps {
   activeTab: string;
@@ -27,6 +28,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   activeTheme, setTheme, user, onLogout, onLogin, onAdd, onBatch, onSecurity,
   currentScope, setCurrentScope
 }) => {
+  const { userProfile } = useApp();
   const renderNavButton = (nav: { id: string, label: string, icon: any }) => (
     <button 
       key={nav.id}
@@ -43,7 +45,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div className="flex items-center justify-between mb-6 px-2">
         <div onClick={!user ? onLogin : undefined} className="flex items-center gap-3 group cursor-pointer">
           <div className={`bg-gradient-to-br ${activeTheme.gradient} p-2.5 rounded-xl shadow-lg shadow-orange-600/20`}><BrainCircuit size={24} /></div>
-          <div><h1 className="font-extrabold text-xl tracking-tighter">NPSC Hub</h1><p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Innovation Center</p></div>
+          <div><h1 className="font-extrabold text-xl tracking-tighter">NPC-Innovation</h1><p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Trung tâm đổi mới</p></div>
         </div>
       </div>
 
@@ -70,7 +72,10 @@ const Sidebar: React.FC<SidebarProps> = ({
             <div className={`w-9 h-9 rounded-xl ${activeTheme.primary} flex items-center justify-center font-black text-white text-sm shadow-md`}>{user.email?.charAt(0).toUpperCase()}</div>
             <div className="flex-1 overflow-hidden">
               <p className="text-[10px] font-black truncate text-slate-200">{user.email}</p>
-              <p className="text-[8px] font-bold text-slate-500 uppercase">Administrator</p>
+              <p className="text-[8px] font-bold text-slate-500 uppercase">
+                {userProfile?.role === 'master_admin' ? 'Master Administrator' : 
+                 userProfile?.role === 'company_admin' ? 'Company Admin' : 'Member'}
+              </p>
             </div>
             <button onClick={onLogout} className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"><LogOut size={14}/></button>
           </div>
@@ -102,8 +107,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                <ClipboardCheck size={12} className="text-emerald-500" />
                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Kiểm duyệt</span>
              </div>
-             <div className="p-2 rounded-2xl bg-emerald-900/10 border border-emerald-900/30">
+             <div className="p-2 rounded-2xl bg-emerald-900/10 border border-emerald-900/30 space-y-1">
                {renderNavButton({ id: 'approvals', label: 'Duyệt bài', icon: ClipboardCheck })}
+               {renderNavButton({ id: 'admin', label: 'Cấu hình Firebase', icon: Building2 })}
              </div>
            </div>
         )}

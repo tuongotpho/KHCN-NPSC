@@ -11,6 +11,7 @@ export interface PointConfig {
 
 export interface Initiative {
   id: string;
+  companyId: string; // MỚI: Định danh công ty
   scope?: InitiativeScope; 
   phase: string;
   year: number;
@@ -49,6 +50,7 @@ export interface ComplianceCheck {
 
 export interface PendingInitiative {
   id: string;
+  companyId: string; // MỚI: Định danh công ty
   title: string;
   authors: string[];
   unit: string[];
@@ -82,6 +84,7 @@ export type ProjectStatus = 'dang_thuc_hien' | 'da_nghiem_thu' | 'da_huy';
 
 export interface ResearchProject {
   id: string;
+  companyId: string; // MỚI: Định danh công ty
   title: string;
   authors: string[];
   mainMembers: string[];
@@ -105,6 +108,7 @@ export interface SimilarityInfo {
 
 export interface BatchItem {
   tempId: string;
+  companyId: string; // MỚI: Định danh công ty
   selected: boolean;
   title: string;
   authors: string[];
@@ -125,17 +129,17 @@ export interface ChatMessage {
 }
 
 export interface AnalysisResult {
-  evaluation: string;
-  similarity: {
-    isDuplicate: boolean;
-    score: number;
-    reason: string;
-    similarToId?: string;
-  };
+  score: number;
+  isDuplicate: boolean;
+  reason: string;
+  mostSimilarTitle?: string;
+  mostSimilarId?: string;
+  fromUser?: boolean;
 }
 
 export interface ReferenceDocument {
   id: string;
+  companyId: string; // MỚI: Định danh công ty
   title: string;
   description: string;
   fileName: string;
@@ -144,4 +148,29 @@ export interface ReferenceDocument {
   size: number;
   uploadDate: number;
   uploadedBy: string;
+}
+
+export type UserRole = 'master_admin' | 'company_admin' | 'user';
+
+export interface UserProfile {
+  uid: string;
+  email: string;
+  role: UserRole;
+  companyId?: string;
+  displayName?: string;
+}
+
+export interface CompanyConfig {
+  id: string;
+  name: string;
+  adminEmail: string; // Email của admin công ty
+  firebaseConfig: {
+    apiKey: string;
+    authDomain: string;
+    projectId: string;
+    storageBucket: string;
+    messagingSenderId: string;
+    appId: string;
+  };
+  geminiApiKey?: string;
 }

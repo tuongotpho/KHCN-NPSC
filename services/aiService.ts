@@ -24,16 +24,16 @@ const checkRateLimit = () => {
 };
 // ----------------------------------------
 
-export const getAIInstance = () => {
-  // Security Check: Đảm bảo API Key tồn tại
-  if (!process.env.API_KEY) {
-    console.error("CRITICAL SECURITY ERROR: API Key is missing.");
-    throw new Error("Lỗi cấu hình bảo mật: Không tìm thấy khóa API.");
+export const getAIInstance = (customApiKey?: string | null) => {
+  // BẮT BUỘC phải có API Key riêng của đơn vị
+  if (!customApiKey) {
+    console.error("SECURITY ERROR: Unit API Key is missing.");
+    throw new Error("Tính năng AI yêu cầu API Key riêng của đơn vị. Vui lòng vào mục 'Cấu hình hệ thống' để thiết lập trước khi sử dụng.");
   }
-  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+  return new GoogleGenAI({ apiKey: customApiKey });
 };
 
-export const AI_SYSTEM_INSTRUCTION = `Bạn là chuyên gia cố vấn chiến lược và quản lý sáng kiến tại NPSC Hub. 
+export const AI_SYSTEM_INSTRUCTION = `Bạn là chuyên gia cố vấn chiến lược và quản lý sáng kiến tại Công ty. 
 
 QUY TẮC TRẢ LỜI:
 1. Chỉ sử dụng thông tin trong "Dữ liệu hệ thống" được cung cấp bên dưới. Nếu không có thông tin, hãy trả lời "Dữ liệu hiện tại không có thông tin này".
@@ -168,13 +168,13 @@ const complianceCheckSchema = {
 };
 
 // --- MỚI: Hàm tạo Embedding Vector cho văn bản ---
-export const generateEmbedding = async (text: string) => {
+export const generateEmbedding = async (text: string, apiKey?: string | null) => {
   // Không check rate limit ở đây vì hàm này thường được gọi trong vòng lặp batch, 
   // cần xử lý rate limit ở nơi gọi để linh hoạt hơn.
-  const ai = getAIInstance();
+  const ai = getAIInstance(apiKey);
   try {
     const response = await ai.models.embedContent({
-      model: 'text-embedding-004',
+      model: 'text-embedding-004', // SỬA LỖI: Dùng model chính xác
       contents: [{ parts: [{ text }] }]
     });
     return response.embeddings?.[0]?.values;
@@ -198,9 +198,9 @@ export const cosineSimilarity = (vecA: number[], vecB: number[]) => {
   return dotProduct / (Math.sqrt(magnitudeA) * Math.sqrt(magnitudeB));
 };
 
-export const extractInitiativesFromPDF = async (base64Data: string, mimeType: string = "application/pdf") => {
+export const extractInitiativesFromPDF = async (base64Data: string, mimeType: string = "application/pdf", apiKey?: string | null) => {
   checkRateLimit();
-  const ai = getAIInstance();
+  const ai = getAIInstance(apiKey);
 
   const runExtraction = async (modelName: string) => {
     const response = await ai.models.generateContent({
@@ -237,9 +237,9 @@ export const extractInitiativesFromPDF = async (base64Data: string, mimeType: st
   }
 };
 
-export const checkSimilarityBatch = async (newItems: any[], existingInitiatives: Initiative[]) => {
+export const checkSimilarityBatch = async (newItems: any[], existingInitiatives: Initiative[], apiKey?: string | null) => {
   checkRateLimit();
-  const ai = getAIInstance();
+  const ai = getAIInstance(apiKey);
   
   const catalog = existingInitiatives.map(i => ({
     id: i.id,
@@ -266,9 +266,9 @@ export const checkSimilarityBatch = async (newItems: any[], existingInitiatives:
   }
 };
 
-export const autoFillRegisterForm = async (data: string, isText: boolean = false) => {
+export const autoFillRegisterForm = async (data: string, isText: boolean = false, apiKey?: string | null) => {
   checkRateLimit();
-  const ai = getAIInstance();
+  const ai = getAIInstance(apiKey);
   const today = new Date();
   const currentDateStr = `${today.getDate()}/${today.getMonth() + 1}/${today.getFullYear()}`;
 
@@ -321,9 +321,9 @@ export const autoFillRegisterForm = async (data: string, isText: boolean = false
   }
 };
 
-export const checkApprovalSimilarity = async (newItem: {title: string, content: string}, existingInitiatives: Initiative[]) => {
+export const checkApprovalSimilarity = async (newItem: {title: string, content: string}, existingInitiatives: Initiative[], apiKey?: string | null) => {
   checkRateLimit();
-  const ai = getAIInstance();
+  const ai = getAIInstance(apiKey);
   
   const catalog = existingInitiatives.map(i => ({
     id: i.id,
@@ -355,9 +355,9 @@ export const checkApprovalSimilarity = async (newItem: {title: string, content: 
   }
 };
 
-export const checkPublicSimilarity = async (draft: {title: string, content: string}, existingInitiatives: Initiative[]) => {
+export const checkPublicSimilarity = async (draft: {title: string, content: string}, existingInitiatives: Initiative[], apiKey?: string | null) => {
   checkRateLimit();
-  const ai = getAIInstance();
+  const ai = getAIInstance(apiKey);
   
   const catalog = existingInitiatives.map(i => ({
     id: i.id,
@@ -371,7 +371,7 @@ export const checkPublicSimilarity = async (draft: {title: string, content: stri
       model: 'gemini-3-flash-preview',
       contents: `KHO SÁNG KIẾN HIỆN CÓ:\n${JSON.stringify(catalog)}\n\nÝ TƯỞNG MỚI ĐANG SOẠN THẢO:\nTiêu đề: ${draft.title}\nNội dung: ${draft.content}`,
       config: {
-        systemInstruction: `Bạn là Cố vấn Sáng kiến chuyên nghiệp của NPSC.
+        systemInstruction: `Bạn là Cố vấn Sáng kiến chuyên nghiệp của Công ty.
         
         NHIỆM VỤ:
         1. So sánh "Ý TƯỞNG MỚI" với "KHO SÁNG KIẾN HIỆN CÓ".
@@ -407,9 +407,9 @@ export const checkPublicSimilarity = async (draft: {title: string, content: stri
   }
 };
 
-export const validateInitiativeCompliance = async (data: { title: string, content: string, monthsApplied: number }) => {
+export const validateInitiativeCompliance = async (data: { title: string, content: string, monthsApplied: number }, apiKey?: string | null) => {
   checkRateLimit();
-  const ai = getAIInstance();
+  const ai = getAIInstance(apiKey);
 
   try {
     const response = await ai.models.generateContent({

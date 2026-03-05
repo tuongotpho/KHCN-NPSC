@@ -1,4 +1,3 @@
-
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertCircle, RefreshCcw, Home } from 'lucide-react';
 
@@ -16,13 +15,10 @@ interface State {
  * ErrorBoundary component to catch and handle runtime errors gracefully.
  */
 class ErrorBoundary extends Component<Props, State> {
-  constructor(props: Props) {
-    super(props);
-    this.state = {
-      hasError: false,
-      error: null
-    };
-  }
+  public state: State = {
+    hasError: false,
+    error: null
+  };
 
   public static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };

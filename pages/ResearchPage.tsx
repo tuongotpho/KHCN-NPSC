@@ -7,6 +7,19 @@ import {
 } from 'lucide-react';
 import { db } from '../services/firebase';
 import { ResearchProject, SettlementStatus, ProjectStatus } from '../types';
+import { useApp } from '../contexts/AppContext';
+
+const SETTLEMENT_LABELS: Record<SettlementStatus, { label: string, color: string }> = {
+  chua_thanh_toan: { label: 'Chưa thanh toán', color: 'bg-rose-500' },
+  dang_thanh_toan: { label: 'Đang thanh toán', color: 'bg-amber-500' },
+  da_quyet_toan: { label: 'Đã quyết toán', color: 'bg-emerald-500' }
+};
+
+const PROJECT_STATUS_LABELS: Record<ProjectStatus, { label: string, color: string }> = {
+  dang_thuc_hien: { label: 'Đang thực hiện', color: 'bg-blue-500' },
+  da_nghiem_thu: { label: 'Đã nghiệm thu', color: 'bg-emerald-500' },
+  da_huy: { label: 'Đã hủy', color: 'bg-slate-500' }
+};
 
 interface ResearchPageProps {
   activeTheme: any;
@@ -14,39 +27,35 @@ interface ResearchPageProps {
   onEdit: (project: ResearchProject) => void;
   onAdd: () => void;
 }
-
-const SETTLEMENT_LABELS: Record<SettlementStatus, { label: string, color: string }> = {
-  'chua_thanh_toan': { label: 'Chưa thanh toán', color: 'text-slate-400 bg-slate-100 dark:bg-slate-800' },
-  'dang_thanh_toan': { label: 'Đang thanh toán', color: 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' },
-  'da_quyet_toan': { label: 'Đã quyết toán', color: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' }
-};
-
-const PROJECT_STATUS_LABELS: Record<ProjectStatus, { label: string, color: string }> = {
-  'dang_thuc_hien': { label: 'Đang thực hiện', color: 'bg-blue-500' },
-  'da_nghiem_thu': { label: 'Đã nghiệm thu', color: 'bg-emerald-500' },
-  'da_huy': { label: 'Đã hủy', color: 'bg-rose-500' }
-};
-
+// ... (rest of the file)
 const ResearchPage: React.FC<ResearchPageProps> = ({ activeTheme, user, onEdit, onAdd }) => {
+  const { companyId } = useApp();
   const [projects, setProjects] = useState<ResearchProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewingProject, setViewingProject] = useState<ResearchProject | null>(null);
 
   useEffect(() => {
-    const unsubscribe = db.collection('research_projects').orderBy('year', 'desc').onSnapshot(
-      snapshot => {
-        const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ResearchProject));
-        setProjects(docs);
+    if (!companyId) {
         setLoading(false);
-      },
-      err => {
-        console.error(err);
-        setLoading(false);
-      }
-    );
+        return;
+    }
+    const unsubscribe = db.collection('research_projects')
+      .where('companyId', '==', companyId)
+      .orderBy('year', 'desc')
+      .onSnapshot(
+        snapshot => {
+          const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ResearchProject));
+          setProjects(docs);
+          setLoading(false);
+        },
+        err => {
+          console.error(err);
+          setLoading(false);
+        }
+      );
     return unsubscribe;
-  }, []);
+  }, [companyId]);
 
   const stats = useMemo(() => {
     const total = projects.length;

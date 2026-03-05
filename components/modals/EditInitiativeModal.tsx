@@ -6,6 +6,7 @@ import { useModal } from '../../contexts/ModalContext';
 import { InitiativeLevel } from '../../types';
 import { db, storage } from '../../services/firebase';
 import { generateEmbedding } from '../../services/aiService';
+import { useInitiatives } from '../../hooks/useInitiatives';
 
 const LEVEL_COLORS: Record<string, string> = {
   'HLH': 'bg-slate-500',
@@ -25,11 +26,14 @@ const INITIATIVE_FIELDS = [
 
 const EditInitiativeModal: React.FC = () => {
   const { editingInitiative, closeEditInitiative } = useModal();
-  const { activeTheme, currentScope } = useApp();
+  const { activeTheme, currentScope, companyId, geminiApiKey } = useApp();
+  const { initiatives } = useInitiatives(); // Lấy dữ liệu toàn bộ sáng kiến để làm gợi ý
   
   // Local state for editing form
   const [formData, setFormData] = useState<any>(null);
   const [rawInitAuthors, setRawInitAuthors] = useState('');
+  
+  // States cho gợi ý đơn vị
   const [unitInput, setUnitInput] = useState('');
   const [showUnitSuggestions, setShowUnitSuggestions] = useState(false);
 
@@ -55,9 +59,17 @@ const EditInitiativeModal: React.FC = () => {
     }
   }, [editingInitiative, currentScope]);
 
-  // Unit suggestions (Mock for now, or could fetch all units from DB)
-  // Trong thực tế nên truyền danh sách units từ ngoài vào hoặc dùng Context
-  const availableUnits: string[] = []; // Placeholder
+  // Tạo danh sách đơn vị duy nhất từ dữ liệu sáng kiến có sẵn để gợi ý
+  const availableUnits = useMemo(() => {
+    const uniqueUnits = new Set<string>();
+    initiatives.forEach(item => {
+        const units = Array.isArray(item.unit) ? item.unit : (item.unit ? [item.unit] : []);
+        units.forEach(u => {
+            if (u && typeof u === 'string') uniqueUnits.add(u.trim());
+        });
+    });
+    return Array.from(uniqueUnits).sort();
+  }, [initiatives]);
 
   if (!editingInitiative || !formData) return null;
 
@@ -69,6 +81,7 @@ const EditInitiativeModal: React.FC = () => {
     try {
         const finalInitiative = {
             ...formData,
+            companyId: companyId,
             authors: rawInitAuthors.split(',').map(s => s.trim()).filter(s => s !== ''),
             unit: (formData.unit || []).map((s: string) => s.trim()).filter((s: string) => s !== ''),
             field: (formData.field || []).filter((f: string) => f)
@@ -79,7 +92,7 @@ const EditInitiativeModal: React.FC = () => {
         let vector = null;
         try {
             const textToEmbed = `${finalInitiative.title} ${finalInitiative.content || ''}`;
-            vector = await generateEmbedding(textToEmbed);
+            vector = await generateEmbedding(textToEmbed, geminiApiKey);
         } catch (e) {
             console.warn(`Could not generate vector for ${finalInitiative.title}`, e);
         }
@@ -255,7 +268,7 @@ const EditInitiativeModal: React.FC = () => {
                 <input className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500/20" value={rawInitAuthors} onChange={e => setRawInitAuthors(e.target.value)} placeholder="Nguyễn Văn A, Trần Thị B..." />
             </div>
             
-            {/* Units */}
+            {/* Units - Đã khôi phục tính năng gợi ý */}
             <div className="space-y-2 relative">
                 <label className="text-[9px] font-black uppercase text-slate-400 ml-2 flex items-center gap-1"><Building2 size={10}/> Đơn vị áp dụng</label>
                 <div className="min-h-[60px] w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl flex flex-wrap gap-2 items-center focus-within:ring-2 focus-within:ring-orange-500/20 transition-shadow">

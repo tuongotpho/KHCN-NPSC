@@ -4,6 +4,7 @@ import { X, UploadCloud, FileText, Check, AlertTriangle, Loader2, Save, Wand2, S
 import { extractInitiativesFromPDF, checkSimilarityBatch, generateEmbedding } from '../services/aiService';
 import { db } from '../services/firebase';
 import { BatchItem, InitiativeLevel, Initiative, InitiativeScope } from '../types';
+import { useApp } from '../contexts/AppContext';
 
 interface BatchImportModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface BatchImportModalProps {
 }
 
 const BatchImportModal: React.FC<BatchImportModalProps> = ({ isOpen, onClose, activeTheme }) => {
+  const { companyId, geminiApiKey } = useApp();
   const [step, setStep] = useState<'upload' | 'review'>('upload');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -41,10 +43,10 @@ const BatchImportModal: React.FC<BatchImportModalProps> = ({ isOpen, onClose, ac
         
         try {
           // Bước 1: Trích xuất
-          const rawData = await extractInitiativesFromPDF(base64String);
+          const rawData = await extractInitiativesFromPDF(base64String, "application/pdf", geminiApiKey);
           
           // Bước 2: Lấy dữ liệu cũ để so sánh (Lấy TOÀN BỘ để check trùng triệt để)
-          const snapshot = await db.collection("initiatives").get();
+          const snapshot = await db.collection("initiatives").where('companyId', '==', companyId).get();
           const existingDocs = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Initiative));
 
           const mappedItems: BatchItem[] = rawData.map((item: any, index: number) => ({
@@ -64,7 +66,8 @@ const BatchImportModal: React.FC<BatchImportModalProps> = ({ isOpen, onClose, ac
           // Bước 3: Kiểm tra trùng lặp bằng AI
           const similarityResults = await checkSimilarityBatch(
             mappedItems.map(m => ({ tempId: m.tempId, title: m.title, content: m.content })),
-            existingDocs
+            existingDocs,
+            geminiApiKey
           );
 
           // Gắn kết quả vào item
@@ -114,7 +117,7 @@ const BatchImportModal: React.FC<BatchImportModalProps> = ({ isOpen, onClose, ac
         try {
             // Kết hợp tiêu đề và nội dung
             const textToEmbed = `${item.title} ${item.content || ''}`;
-            vector = await generateEmbedding(textToEmbed);
+            vector = await generateEmbedding(textToEmbed, geminiApiKey);
         } catch (e) {
             console.warn(`Could not generate vector for ${item.title}`, e);
             // Vẫn cho lưu dù lỗi vector, có thể chạy lại tool migration sau
@@ -123,6 +126,7 @@ const BatchImportModal: React.FC<BatchImportModalProps> = ({ isOpen, onClose, ac
 
         // Tạo payload sạch, loại bỏ các trường temp của UI (selected, tempId)
         const payload = {
+            companyId: companyId,
             title: item.title,
             authors: item.authors,
             unit: item.unit,

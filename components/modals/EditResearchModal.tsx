@@ -7,7 +7,7 @@ import { db } from '../../services/firebase';
 
 const EditResearchModal: React.FC = () => {
   const { editingProject, closeEditProject } = useModal();
-  const { activeTheme } = useApp();
+  const { activeTheme, companyId } = useApp();
   
   // Local state
   const [formData, setFormData] = useState<any>(null);
@@ -31,6 +31,7 @@ const EditResearchModal: React.FC = () => {
     
     const finalProject = {
       ...formData,
+      companyId: companyId,
       authors: rawAuthors.split(',').map(s => s.trim()).filter(s => s !== ''),
       mainMembers: rawMembers.split(',').map(s => s.trim()).filter(s => s !== ''),
       experts: rawExperts.split(',').map(s => s.trim()).filter(s => s !== '')

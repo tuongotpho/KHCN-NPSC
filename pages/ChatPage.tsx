@@ -1,8 +1,9 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, Loader2, Sparkles, BrainCircuit } from 'lucide-react';
+import { Send, Bot, Loader2, Sparkles, BrainCircuit, AlertTriangle } from 'lucide-react';
 import { getAIInstance, AI_SYSTEM_INSTRUCTION, generateEmbedding, cosineSimilarity } from '../services/aiService';
 import { ChatMessage, Initiative } from '../types';
+import { useApp } from '../contexts/AppContext';
 
 interface ChatPageProps {
   initiatives: Initiative[];
@@ -10,8 +11,9 @@ interface ChatPageProps {
 }
 
 const ChatPage: React.FC<ChatPageProps> = ({ initiatives, activeTheme }) => {
+  const { geminiApiKey } = useApp();
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: 'model', text: 'Chào mừng bạn đến với NPSC Hub.\nTôi đã sẵn sàng tra cứu dữ liệu từ ' + initiatives.length + ' hồ sơ sáng kiến.\nBạn cần tìm hiểu thông tin gì?' }
+    { role: 'model', text: 'Chào mừng bạn đến với NPC-Innovation.\nTôi đã sẵn sàng tra cứu dữ liệu từ ' + initiatives.length + ' hồ sơ sáng kiến.\nBạn cần tìm hiểu thông tin gì?' }
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -52,7 +54,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ initiatives, activeTheme }) => {
       // 1.2 Vector Search (Tìm kiếm ngữ nghĩa cho các câu hỏi phức tạp)
       let vectorMatches: { item: Initiative; score: number; type: string }[] = [];
       try {
-          const queryVector = await generateEmbedding(input);
+          const queryVector = await generateEmbedding(input, geminiApiKey);
           
           if (queryVector) {
               vectorMatches = initiatives.map(item => {
@@ -116,7 +118,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ initiatives, activeTheme }) => {
       // BƯỚC 2: GENERATION (GỬI CHO AI TRẢ LỜI)
       // ---------------------------------------------------------
       
-      const ai = getAIInstance();
+      const ai = getAIInstance(geminiApiKey);
       
       // Nếu vẫn không tìm thấy gì cả (cả keyword lẫn vector đều tạch)
       if (!context) {
@@ -157,12 +159,21 @@ const ChatPage: React.FC<ChatPageProps> = ({ initiatives, activeTheme }) => {
       <div className="p-6 lg:p-10 border-b border-slate-100 dark:border-slate-800 flex items-center gap-5 bg-slate-50/50 dark:bg-slate-800/30">
         <div className={`${activeTheme.primary} p-4 rounded-2xl text-white shadow-lg`}><Bot size={28} /></div>
         <div>
-          <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Trợ lý AI NPSC</h3>
+          <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Trợ lý AI NPC-Innovation</h3>
           <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><BrainCircuit size={10} className="text-emerald-500"/> Hybrid RAG Engine Active</p>
         </div>
       </div>
       
       <div className="flex-1 overflow-y-auto p-6 lg:p-10 space-y-8 custom-scrollbar">
+        {!geminiApiKey && (
+          <div className="p-6 bg-rose-50 border border-rose-100 rounded-3xl flex items-center gap-4 animate-pulse">
+            <div className="p-3 bg-rose-100 text-rose-600 rounded-2xl"><AlertTriangle size={24}/></div>
+            <div>
+              <p className="text-xs font-black uppercase text-rose-600 tracking-widest">Tính năng AI đang bị khóa</p>
+              <p className="text-[10px] font-bold text-rose-500">Vui lòng yêu cầu Quản trị viên cấu hình Gemini API Key riêng cho đơn vị để sử dụng trợ lý AI.</p>
+            </div>
+          </div>
+        )}
         {messages.map((msg, idx) => (
           <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-slide`}>
             <div className={`max-w-[85%] lg:max-w-[75%] p-5 lg:p-7 rounded-[2.5rem] font-medium whitespace-pre-wrap shadow-sm relative ${msg.role === 'user' ? `${activeTheme.primary} text-white rounded-tr-none` : 'bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-tl-none border border-slate-100 dark:border-slate-700'}`}>
@@ -193,11 +204,11 @@ const ChatPage: React.FC<ChatPageProps> = ({ initiatives, activeTheme }) => {
             value={input} 
             onChange={(e) => setInput(e.target.value)} 
             onKeyPress={(e) => e.key === 'Enter' && handleSend()} 
-            placeholder="Hỏi về tên tác giả, đơn vị hoặc nội dung sáng kiến..." 
+            placeholder={geminiApiKey ? "Hỏi về tên tác giả, đơn vị hoặc nội dung sáng kiến..." : "Vui lòng cấu hình API Key để sử dụng..."}
             className="w-full pl-8 pr-14 py-5 bg-slate-50 dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 rounded-[2.5rem] outline-none font-bold disabled:opacity-50"
-            disabled={isTyping}
+            disabled={isTyping || !geminiApiKey}
           />
-          <button onClick={handleSend} disabled={isTyping} className={`absolute right-2 top-1/2 -translate-y-1/2 ${activeTheme.primary} p-3 rounded-full text-white shadow-lg disabled:opacity-50`}><Send size={20} /></button>
+          <button onClick={handleSend} disabled={isTyping || !geminiApiKey} className={`absolute right-2 top-1/2 -translate-y-1/2 ${activeTheme.primary} p-3 rounded-full text-white shadow-lg disabled:opacity-50`}><Send size={20} /></button>
         </div>
       </div>
     </div>
