@@ -184,7 +184,7 @@ export default async function handler(req: any, res: any) {
 
     if (action === 'extractInitiativesFromPDF') {
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.1-flash-lite',
         contents: {
           parts: [
             { inlineData: { mimeType: payload.mimeType, data: payload.base64Data } },
@@ -198,7 +198,7 @@ export default async function handler(req: any, res: any) {
 
     if (action === 'checkSimilarityBatch') {
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.1-flash-lite',
         contents: `KHO DỮ LIỆU CŨ:\n${JSON.stringify(payload.catalog)}\n\nDANH SÁCH MỚI CẦN KIỂM TRA:\n${JSON.stringify(payload.newItems)}`,
         config: {
           systemInstruction: "Bạn là chuyên gia kiểm soát trùng lặp sáng kiến. Hãy so sánh danh sách mới với kho dữ liệu cũ. 'duplicate' nếu giống >80%, 'similar' nếu giống 40-80%, 'new' nếu dưới 40%. Trả về JSON.",
@@ -214,7 +214,7 @@ export default async function handler(req: any, res: any) {
         : [{ inlineData: { mimeType: 'application/pdf', data: payload.data } }];
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.1-flash-lite',
         contents: {
           parts: [
             ...parts,
@@ -240,7 +240,7 @@ Yêu cầu:
 
     if (action === 'checkApprovalSimilarity') {
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.1-flash-lite',
         contents: `KHO SÁNG KIẾN ĐÃ DUYỆT:\n${JSON.stringify(payload.catalog)}\n\nSÁNG KIẾN CẦN RÀ SOÁT:\nTiêu đề: ${payload.newItem.title}\nNội dung: ${payload.newItem.content}`,
         config: {
           systemInstruction: `Bạn là thẩm định viên sáng kiến. Nhiệm vụ:
@@ -256,7 +256,7 @@ Yêu cầu:
 
     if (action === 'checkPublicSimilarity') {
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.1-flash-lite',
         contents: `KHO SÁNG KIẾN HIỆN CÓ:\n${JSON.stringify(payload.catalog)}\n\nÝ TƯỞNG MỚI:\nTiêu đề: ${payload.draft.title}\nNội dung: ${payload.draft.content}`,
         config: {
           systemInstruction: `Bạn là Cố vấn Sáng kiến chuyên nghiệp.
@@ -276,7 +276,7 @@ Yêu cầu:
 
     if (action === 'validateInitiativeCompliance') {
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.1-flash-lite',
         contents: `NỘI DUNG SÁNG KIẾN:\nTiêu đề: ${payload.data.title}\nThời gian áp dụng: ${payload.data.monthsApplied} tháng\nNội dung chi tiết: ${payload.data.content}`,
         config: {
           systemInstruction: `Bạn là Cán bộ Thẩm định Sáng kiến tại EVNNPC. Kiểm tra nội dung sáng kiến theo các tiêu chí:
@@ -295,7 +295,7 @@ Yêu cầu:
     if (action === 'chatAssistant') {
       const { context, input } = payload;
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-3.1-flash-lite',
         contents: `CONTEXT DỮ LIỆU ĐÃ LỌC (HYBRID RAG RETRIEVED):\n${context}\n\nCÂU HỎI NGƯỜI DÙNG: "${input}"`,
         config: {
           systemInstruction: `Bạn là trợ lý AI chuyên nghiệp của Hệ thống Quản trị Sáng kiến (NPC-Innovation). Hôm nay bạn đóng vai trò tham vấn chuyên gia tự động.
@@ -312,7 +312,7 @@ LƯU Ý QUAN TRỌNG:
 
     if (action === 'generateInsight') {
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-3.1-flash-lite',
         contents: `Phân tích dữ liệu: ${payload.statsString}. Hãy dự báo xu hướng và gợi ý định hướng sáng kiến cho năm tới để nâng cao hiệu quả sản xuất kinh doanh.`,
         config: {
           systemInstruction: "Bạn là chuyên gia phân tích dữ liệu chuyên nghiệp. Chỉ trả về một đoạn văn bản tóm tắt từ những insight độc đáo nhất. Đừng phân tích cơ bản.",
