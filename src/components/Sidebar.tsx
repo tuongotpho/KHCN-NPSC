@@ -100,7 +100,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* KHỐI 0.5: QUẢN TRỊ (ADMIN ONLY) */}
-        {user && (
+        {user && (userProfile?.role === 'admin' || user.email === 'admin@npsc.evn.vn') && (
           <div className="space-y-3">
             <div className="flex items-center gap-2 px-2">
               <ClipboardCheck size={12} className="text-emerald-500" />
