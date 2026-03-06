@@ -1,9 +1,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, Loader2, Sparkles, BrainCircuit, AlertTriangle } from 'lucide-react';
-import { getAIInstance, AI_SYSTEM_INSTRUCTION, generateEmbedding, cosineSimilarity } from '../services/aiService';
+import { chatAssistant, generateEmbedding, cosineSimilarity } from '../services/aiService';
 import { ChatMessage, Initiative } from '../types';
-import { useApp } from '../contexts/AppContext';
 
 interface ChatPageProps {
   initiatives: Initiative[];
@@ -11,7 +10,6 @@ interface ChatPageProps {
 }
 
 const ChatPage: React.FC<ChatPageProps> = ({ initiatives, activeTheme }) => {
-  const { geminiApiKey } = useApp();
   const [messages, setMessages] = useState<ChatMessage[]>([
     { role: 'model', text: 'Chào mừng bạn đến với NPC-Innovation.\nTôi đã sẵn sàng tra cứu dữ liệu từ ' + initiatives.length + ' hồ sơ sáng kiến.\nBạn cần tìm hiểu thông tin gì?' }
   ]);
@@ -118,26 +116,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ initiatives, activeTheme }) => {
       // BƯỚC 2: GENERATION (GỬI CHO AI TRẢ LỜI)
       // ---------------------------------------------------------
 
-      const ai = getAIInstance();
-
-      // Nếu vẫn không tìm thấy gì cả (cả keyword lẫn vector đều tạch)
-      if (!context) {
-        setMessages([...newMsgs, {
-          role: 'model',
-          text: `Tôi đã rà soát dữ liệu nhưng không tìm thấy thông tin nào khớp với "${input}".\nBạn thử kiểm tra lại chính tả tên tác giả hoặc đơn vị xem sao nhé.`
-        }]);
-        setIsTyping(false);
-        return;
-      }
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `CONTEXT DỮ LIỆU ĐÃ LỌC (HYBRID RAG RETRIEVED):\n${context}\n\nCÂU HỎI NGƯỜI DÙNG: "${input}"`,
-        config: {
-          systemInstruction: AI_SYSTEM_INSTRUCTION + `\n\nLƯU Ý QUAN TRỌNG:\n1. Dữ liệu trên là danh sách các sáng kiến có liên quan nhất (tìm thấy ${relevantCount} kết quả).\n2. Nếu người dùng hỏi về một người (Tác giả), hãy liệt kê các sáng kiến mà người đó tham gia (dựa vào trường Tác giả).\n3. Nếu người dùng hỏi về một chủ đề, hãy tổng hợp thông tin.\n4. Nếu trong danh sách Context KHÔNG có thông tin chính xác người dùng hỏi, hãy nói rõ là chưa tìm thấy trong kho dữ liệu hiện tại.`,
-          temperature: 0.2
-        }
-      });
+      const response = await chatAssistant(context, input);
 
       setMessages([...newMsgs, {
         role: 'model',
@@ -165,15 +144,6 @@ const ChatPage: React.FC<ChatPageProps> = ({ initiatives, activeTheme }) => {
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 lg:p-10 space-y-8 custom-scrollbar">
-        {!geminiApiKey && (
-          <div className="p-6 bg-rose-50 border border-rose-100 rounded-3xl flex items-center gap-4 animate-pulse">
-            <div className="p-3 bg-rose-100 text-rose-600 rounded-2xl"><AlertTriangle size={24} /></div>
-            <div>
-              <p className="text-xs font-black uppercase text-rose-600 tracking-widest">Tính năng AI đang bị khóa</p>
-              <p className="text-[10px] font-bold text-rose-500">Vui lòng yêu cầu Quản trị viên cấu hình Gemini API Key riêng cho đơn vị để sử dụng trợ lý AI.</p>
-            </div>
-          </div>
-        )}
         {messages.map((msg, idx) => (
           <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-slide`}>
             <div className={`max-w-[85%] lg:max-w-[75%] p-5 lg:p-7 rounded-[2.5rem] font-medium whitespace-pre-wrap shadow-sm relative ${msg.role === 'user' ? `${activeTheme.primary} text-white rounded-tr-none` : 'bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-tl-none border border-slate-100 dark:border-slate-700'}`}>
@@ -204,11 +174,11 @@ const ChatPage: React.FC<ChatPageProps> = ({ initiatives, activeTheme }) => {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            placeholder={geminiApiKey ? "Hỏi về tên tác giả, đơn vị hoặc nội dung sáng kiến..." : "Vui lòng cấu hình API Key để sử dụng..."}
+            placeholder="Hỏi về tên tác giả, đơn vị hoặc nội dung sáng kiến..."
             className="w-full pl-8 pr-14 py-5 bg-slate-50 dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 rounded-[2.5rem] outline-none font-bold disabled:opacity-50"
-            disabled={isTyping || !geminiApiKey}
+            disabled={isTyping}
           />
-          <button onClick={handleSend} disabled={isTyping || !geminiApiKey} className={`absolute right-2 top-1/2 -translate-y-1/2 ${activeTheme.primary} p-3 rounded-full text-white shadow-lg disabled:opacity-50`}><Send size={20} /></button>
+          <button onClick={handleSend} disabled={isTyping} className={`absolute right-2 top-1/2 -translate-y-1/2 ${activeTheme.primary} p-3 rounded-full text-white shadow-lg disabled:opacity-50`}><Send size={20} /></button>
         </div>
       </div>
     </div>
