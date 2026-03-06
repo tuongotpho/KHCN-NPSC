@@ -14,13 +14,10 @@ export const THEMES = {
 export const DEFAULT_POINT_CONFIG: PointConfig = { HLH: 1, NPSC: 2, NPC: 3, EVN: 4 };
 
 type ThemeKey = keyof typeof THEMES;
-type TabType = 'list' | 'stats' | 'chat' | 'bubble' | 'treemap' | 'references' | 'research' | 'register' | 'approvals';
 
 interface AppContextType {
   user: any;
   userProfile: UserProfile | null;
-  activeTab: TabType;
-  setActiveTab: (tab: TabType) => void;
   theme: ThemeKey;
   setTheme: (theme: ThemeKey) => void;
   activeTheme: typeof THEMES['red'];
@@ -38,7 +35,6 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [activeTab, setActiveTab] = useState<TabType>('list');
   const [theme, setTheme] = useState<ThemeKey>('red');
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
   const [currentScope, setCurrentScope] = useState<InitiativeScope>('Company');
@@ -116,7 +112,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const value = {
     user,
     userProfile,
-    activeTab, setActiveTab,
     theme, setTheme,
     activeTheme: THEMES[theme],
     isDarkMode, setIsDarkMode,

@@ -1,12 +1,11 @@
 
 import React from 'react';
 import { LayoutDashboard, BarChart3, Bot, LogOut, BrainCircuit, Sun, Moon, Palette, Plus, FileUp, LogIn, Disc, LayoutGrid, BookOpen, Microscope, Zap, FolderSearch, FilePenLine, ClipboardCheck, ShieldCheck, Globe, Building2 } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { InitiativeLevel, InitiativeScope } from '../types';
 import { useApp } from '../contexts/AppContext';
 
 interface SidebarProps {
-  activeTab: string;
-  setActiveTab: (tab: any) => void;
   isDarkMode: boolean;
   setIsDarkMode: (dark: boolean) => void;
   activeTheme: any;
@@ -24,15 +23,19 @@ interface SidebarProps {
 const THEME_OPTIONS = ['red', 'blue', 'emerald', 'indigo'];
 
 const Sidebar: React.FC<SidebarProps> = ({
-  activeTab, setActiveTab, isDarkMode, setIsDarkMode,
+  isDarkMode, setIsDarkMode,
   activeTheme, setTheme, user, onLogout, onLogin, onAdd, onBatch, onSecurity,
   currentScope, setCurrentScope
 }) => {
   const { userProfile } = useApp();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const activeTab = location.pathname.split('/')[1] || 'list';
+
   const renderNavButton = (nav: { id: string, label: string, icon: any }) => (
     <button
       key={nav.id}
-      onClick={() => setActiveTab(nav.id)}
+      onClick={() => navigate(`/${nav.id}`)}
       className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === nav.id ? `${activeTheme.primary} text-white shadow-lg` : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
     >
       <nav.icon size={16} /> {nav.label}

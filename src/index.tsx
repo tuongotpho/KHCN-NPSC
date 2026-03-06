@@ -5,6 +5,7 @@ import App from './App';
 import ErrorBoundary from './ErrorBoundary';
 import { AppProvider } from './contexts/AppContext';
 import { ModalProvider } from './contexts/ModalContext';
+import { BrowserRouter } from 'react-router-dom';
 
 // Global handler for unhandled promise rejections
 window.addEventListener('unhandledrejection', (event) => {
@@ -20,11 +21,13 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <ErrorBoundary>
-      <AppProvider>
-        <ModalProvider>
-          <App />
-        </ModalProvider>
-      </AppProvider>
+      <BrowserRouter>
+        <AppProvider>
+          <ModalProvider>
+            <App />
+          </ModalProvider>
+        </AppProvider>
+      </BrowserRouter>
     </ErrorBoundary>
   </React.StrictMode>
 );

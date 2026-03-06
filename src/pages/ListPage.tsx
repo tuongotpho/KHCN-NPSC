@@ -15,7 +15,7 @@ interface ListPageProps {
   onDelete: (id: string) => void;
 }
 
-const ITEMS_PER_PAGE = 12;
+const ITEMS_PER_PAGE = 20;
 
 const ListPage: React.FC<ListPageProps> = ({ initiatives, activeTheme, user, onView, onEdit, onDelete }) => {
   const [searchTerm, setSearchTerm] = useState('');
