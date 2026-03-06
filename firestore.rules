@@ -8,13 +8,9 @@ service cloud.firestore {
       return request.auth != null;
     }
     
-    // Kiểm tra role admin từ collection users hoặc email cứng
+    // Ai đăng nhập thành công cũng mặc định là Admin
     function isAdmin() {
-      return isAuthenticated() && (
-        request.auth.token.email == 'admin@npsc.evn.vn' ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
-      );
+      return isAuthenticated();
     }
 
     // 1. Kho sáng kiến (Chính thức) — Chỉ Admin mới được ghi

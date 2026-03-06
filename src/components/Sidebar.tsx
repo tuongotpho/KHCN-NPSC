@@ -72,9 +72,6 @@ const Sidebar: React.FC<SidebarProps> = ({
             <div className={`w-9 h-9 rounded-xl ${activeTheme.primary} flex items-center justify-center font-black text-white text-sm shadow-md`}>{user.email?.charAt(0).toUpperCase()}</div>
             <div className="flex-1 overflow-hidden">
               <p className="text-[10px] font-black truncate text-slate-200">{user.email}</p>
-              <p className="text-[8px] font-bold text-slate-500 uppercase">
-                {userProfile?.role === 'admin' ? 'Administrator' : 'Member'}
-              </p>
             </div>
             <button onClick={onLogout} className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"><LogOut size={14} /></button>
           </div>
@@ -100,7 +97,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* KHỐI 0.5: QUẢN TRỊ (ADMIN ONLY) */}
-        {user && (userProfile?.role === 'admin' || user.email === 'admin@npsc.evn.vn') && (
+        {user && (
           <div className="space-y-3">
             <div className="flex items-center gap-2 px-2">
               <ClipboardCheck size={12} className="text-emerald-500" />
