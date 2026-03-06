@@ -1,11 +1,49 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-// --- SECURITY LOGIC ---
-// In a real production scenario with Firebase Auth, you would verify the token here using firebase-admin.
-// For now, we rely on Vercel's standard security or basic headers.
+// --- SECURITY: Allowed origins (tighten for production) ---
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : ['*']; // Default: open. Set ALLOWED_ORIGINS=https://your-domain.vercel.app in Vercel env.
+
+const getCorsOrigin = (requestOrigin?: string) => {
+  if (ALLOWED_ORIGINS.includes('*')) return '*';
+  if (requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)) return requestOrigin;
+  return ALLOWED_ORIGINS[0];
+};
+
+// --- SECURITY: Firebase Admin token verification ---
+// Optional: If firebase-admin is installed, verify tokens.
+// Otherwise, requests are allowed but logged.
+let firebaseAdmin: any = null;
+try {
+  firebaseAdmin = require('firebase-admin');
+  if (!firebaseAdmin.apps.length) {
+    firebaseAdmin.initializeApp({
+      credential: firebaseAdmin.credential.cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      })
+    });
+  }
+} catch {
+  // firebase-admin not installed — auth verification will be skipped
+  firebaseAdmin = null;
+}
+
+const verifyAuth = async (authHeader?: string): Promise<{ uid: string } | null> => {
+  if (!firebaseAdmin || !authHeader?.startsWith('Bearer ')) return null;
+  try {
+    const token = authHeader.split('Bearer ')[1];
+    const decoded = await firebaseAdmin.auth().verifyIdToken(token);
+    return { uid: decoded.uid };
+  } catch {
+    return null;
+  }
+};
 
 const getAIInstance = () => {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY is not set on the server.");
   }
@@ -108,14 +146,12 @@ const complianceCheckSchema = {
 };
 
 export default async function handler(req: any, res: any) {
-  // CORS setup
+  // CORS setup — uses ALLOWED_ORIGINS env var
+  const origin = getCorsOrigin(req.headers?.origin);
   res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-  );
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     res.status(200).end();
@@ -127,6 +163,14 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
+    // Optional auth check — logs but doesn't block (unless you want strict mode)
+    const authUser = await verifyAuth(req.headers?.authorization);
+    if (firebaseAdmin && !authUser) {
+      console.warn("API call without valid Firebase token from origin:", req.headers?.origin);
+      // Uncomment the next line to enforce auth:
+      // return res.status(401).json({ error: 'Unauthorized: Invalid or missing token' });
+    }
+
     const ai = getAIInstance();
     const { action, payload } = req.body;
 

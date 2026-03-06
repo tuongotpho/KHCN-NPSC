@@ -7,9 +7,18 @@ import { ComplianceCheck, InitiativeScope, Initiative } from '../types';
 import { useModal } from '../contexts/ModalContext';
 import { useApp } from '../contexts/AppContext';
 
-// --- CẤU HÌNH TELEGRAM (từ Environment Variables) ---
-const TELEGRAM_BOT_TOKEN = import.meta.env.VITE_TELEGRAM_BOT_TOKEN || "";
-const TELEGRAM_CHAT_ID = import.meta.env.VITE_TELEGRAM_CHAT_ID || "";
+// --- TELEGRAM: Uses Vercel Backend ---
+const sendTelegramNotification = async (data: any) => {
+  try {
+    await fetch('/api/telegram', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data })
+    });
+  } catch (err) {
+    console.error("Lỗi gửi Telegram:", err);
+  }
+};
 
 interface RegisterPageProps {
   activeTheme: any;
@@ -37,7 +46,6 @@ interface PublicCheckResult {
 }
 
 const RegisterPage: React.FC<RegisterPageProps> = ({ activeTheme }) => {
-  const { geminiApiKey } = useApp();
   const { openViewInitiative } = useModal();
   const [formData, setFormData] = useState({
     title: '',
@@ -79,43 +87,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ activeTheme }) => {
     });
   };
 
-  // --- HÀM GỬI TELEGRAM TRỰC TIẾP ---
-  const sendTelegramNotification = async (data: any) => {
-    if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID || TELEGRAM_BOT_TOKEN.includes("YOUR_")) {
-      console.warn("Chưa cấu hình Telegram Token hoặc Chat ID");
-      return;
-    }
-
-    const message = `
-🚀 <b>CÓ SÁNG KIẾN MỚI!</b>
-
-📌 <b>Tiêu đề:</b> ${data.title.toUpperCase()}
-👤 <b>Tác giả:</b> ${Array.isArray(data.authors) ? data.authors.join(", ") : data.authors}
-🏢 <b>Đơn vị:</b> ${Array.isArray(data.unit) ? data.unit.join(", ") : data.unit}
-📅 <b>Năm:</b> ${data.year}
-
-📝 <b>Nội dung tóm tắt:</b>
-${data.content.substring(0, 200)}...
-
-🔗 <a href="${data.driveLink || '#'}">Xem tài liệu đính kèm</a>
-    `;
-
-    try {
-      await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: TELEGRAM_CHAT_ID,
-          text: message,
-          parse_mode: 'HTML',
-          disable_web_page_preview: true
-        })
-      });
-      console.log("Đã gửi thông báo Telegram thành công");
-    } catch (err) {
-      console.error("Lỗi gửi Telegram:", err);
-    }
-  };
+  // Telegram notification is now handled by /api/telegram (server-side)
 
   const handleAutoFillUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -354,15 +326,7 @@ ${data.content.substring(0, 200)}...
 
       <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-8 lg:p-12 border border-slate-100 dark:border-slate-800 shadow-xl space-y-8">
 
-        {!geminiApiKey && (
-          <div className="p-6 bg-rose-50 border border-rose-100 rounded-[2rem] flex items-center gap-4 animate-pulse">
-            <div className="p-3 bg-rose-100 text-rose-600 rounded-2xl"><AlertTriangle size={24} /></div>
-            <div>
-              <p className="text-xs font-black uppercase text-rose-600 tracking-widest">Hệ thống AI đang tạm khóa</p>
-              <p className="text-[10px] font-bold text-rose-500">Đơn vị chưa cấu hình API Key riêng. Các tính năng tự động điền và kiểm tra trùng lặp sẽ không khả dụng.</p>
-            </div>
-          </div>
-        )}
+        {/* AI features are always available — API key is managed server-side */}
 
         {/* Upload Block */}
         <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 p-6 rounded-[2rem] border border-indigo-100 dark:border-indigo-800/30">
@@ -381,8 +345,8 @@ ${data.content.substring(0, 200)}...
               )}
             </div>
             <div className="relative shrink-0">
-              <input type="file" accept=".pdf,.doc,.docx" onChange={handleAutoFillUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" disabled={isAnalyzing || !geminiApiKey} ref={fileInputRef} />
-              <button className={`px-6 py-3 bg-indigo-600 text-white rounded-xl font-black uppercase text-[10px] shadow-lg shadow-indigo-600/20 flex items-center gap-2 hover:bg-indigo-700 transition-all ${isAnalyzing || !geminiApiKey ? 'opacity-70 cursor-not-allowed' : ''}`}>
+              <input type="file" accept=".pdf,.doc,.docx" onChange={handleAutoFillUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" disabled={isAnalyzing} ref={fileInputRef} />
+              <button className={`px-6 py-3 bg-indigo-600 text-white rounded-xl font-black uppercase text-[10px] shadow-lg shadow-indigo-600/20 flex items-center gap-2 hover:bg-indigo-700 transition-all ${isAnalyzing ? 'opacity-70 cursor-not-allowed' : ''}`}>
                 {isAnalyzing ? 'Đang đọc file...' : <><UploadCloud size={16} /> Chọn File Đơn</>}
               </button>
             </div>
@@ -459,7 +423,7 @@ ${data.content.substring(0, 200)}...
               <button
                 type="button"
                 onClick={handleCheckSimilarity}
-                disabled={isCheckingSim || !formData.title || !formData.content || !geminiApiKey}
+                disabled={isCheckingSim || !formData.title || !formData.content}
                 className="flex items-center gap-2 px-5 py-2.5 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 rounded-xl text-[11px] font-black uppercase transition-all disabled:opacity-50"
               >
                 {isCheckingSim ? <Loader2 size={14} className="animate-spin" /> : <ScanSearch size={14} />}

@@ -3,42 +3,51 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Hàm tiện ích kiểm tra đăng nhập
+    // --- HELPER FUNCTIONS ---
     function isAuthenticated() {
       return request.auth != null;
     }
+    
+    // Kiểm tra role admin từ collection users
+    function isAdmin() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
 
-    // 1. Kho sáng kiến (Chính thức)
+    // 1. Kho sáng kiến (Chính thức) — Chỉ Admin mới được ghi
     match /initiatives/{docId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
     }
 
     // Sub-collection cho tài liệu tham khảo
     match /initiatives/{parentId}/{subCol}/{docId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow write: if isAdmin();
     }
 
-    // 2. Danh mục đề tài KHCN
+    // 2. Danh mục đề tài KHCN — Chỉ Admin mới được ghi
     match /research_projects/{docId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
     }
 
-    // 3. Cấu hình hệ thống
+    // 3. Cấu hình hệ thống — Chỉ Admin mới được ghi
     match /settings/{docId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow write: if isAdmin();
     }
 
-    // 4. Sáng kiến chờ duyệt (cho phép tạo không cần login)
+    // 4. Sáng kiến chờ duyệt
+    //    - Tạo mới: cho phép công khai (form đăng ký không cần login)
+    //    - Đọc/Sửa/Xóa: chỉ Admin
     match /pending_initiatives/{docId} {
       allow create: if true;
-      allow read, update, delete: if isAuthenticated();
+      allow read, update, delete: if isAdmin();
     }
 
-    // 5. Hồ sơ người dùng
+    // 5. Hồ sơ người dùng — User chỉ sửa hồ sơ của chính mình
     match /users/{userId} {
       allow read: if isAuthenticated();
       allow write: if isAuthenticated() && request.auth.uid == userId;

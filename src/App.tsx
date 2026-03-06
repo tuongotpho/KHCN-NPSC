@@ -1,20 +1,24 @@
 
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, Suspense, lazy } from 'react';
 import { db } from "./services/firebase";
 import { useInitiatives } from "./hooks/useInitiatives";
 import Sidebar from "./components/Sidebar";
-import ListPage from "./pages/ListPage";
-import ChatPage from "./pages/ChatPage";
-import StatsPage from "./pages/StatsPage";
-import BubblePage from "./pages/BubblePage";
-import TreeMapPage from "./pages/TreeMapPage";
-import ReferencePage from "./pages/ReferencePage";
-import ResearchPage from "./pages/ResearchPage";
-import RegisterPage from "./pages/RegisterPage";
-import ApprovalPage from "./pages/ApprovalPage";
 import ErrorBoundary from "./ErrorBoundary";
-import BatchImportModal from "./components/BatchImportModal";
-import SecurityAuditModal from "./components/SecurityAuditModal";
+
+// Lazy-load all pages for code-splitting
+const ListPage = lazy(() => import("./pages/ListPage"));
+const ChatPage = lazy(() => import("./pages/ChatPage"));
+const StatsPage = lazy(() => import("./pages/StatsPage"));
+const BubblePage = lazy(() => import("./pages/BubblePage"));
+const TreeMapPage = lazy(() => import("./pages/TreeMapPage"));
+const ReferencePage = lazy(() => import("./pages/ReferencePage"));
+const ResearchPage = lazy(() => import("./pages/ResearchPage"));
+const RegisterPage = lazy(() => import("./pages/RegisterPage"));
+const ApprovalPage = lazy(() => import("./pages/ApprovalPage"));
+
+// Modals loaded lazily too
+const BatchImportModal = lazy(() => import("./components/BatchImportModal"));
+const SecurityAuditModal = lazy(() => import("./components/SecurityAuditModal"));
 import LoginModal from "./components/modals/LoginModal";
 import EditInitiativeModal from "./components/modals/EditInitiativeModal";
 import ViewInitiativeModal from "./components/modals/ViewInitiativeModal";
@@ -76,23 +80,31 @@ const App: React.FC = () => {
         />
 
         <main className="flex-1 p-4 lg:p-10 overflow-y-auto">
-          <div className="animate-slide">
-            {activeTab === 'register' && <RegisterPage activeTheme={activeTheme} />}
-            {activeTab === 'approvals' && <ApprovalPage activeTheme={activeTheme} />}
-            {activeTab === 'list' && <ListPage initiatives={displayInitiatives} activeTheme={activeTheme} user={user} onView={openViewInitiative} onEdit={openEditInitiative} onDelete={handleDelete} />}
-            {activeTab === 'stats' && <StatsPage initiatives={displayInitiatives} activeTheme={activeTheme} onViewItem={openViewInitiative} pointConfig={pointConfig} onUpdatePointConfig={savePointConfig} user={user} />}
-            {activeTab === 'chat' && <ChatPage initiatives={displayInitiatives} activeTheme={activeTheme} />}
-            {activeTab === 'references' && <ReferencePage activeTheme={activeTheme} user={user} />}
-            {activeTab === 'research' && <ResearchPage activeTheme={activeTheme} user={user} onEdit={openEditProject} onAdd={openEditProject} />}
-            {activeTab === 'bubble' && <BubblePage initiatives={displayInitiatives} activeTheme={activeTheme} user={user} onView={openViewInitiative} onEdit={openEditInitiative} onDelete={handleDelete} />}
-            {activeTab === 'treemap' && <TreeMapPage initiatives={displayInitiatives} activeTheme={activeTheme} user={user} onView={openViewInitiative} onEdit={openEditInitiative} onDelete={handleDelete} />}
-          </div>
+          <Suspense fallback={
+            <div className="flex items-center justify-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
+            </div>
+          }>
+            <div className="animate-slide">
+              {activeTab === 'register' && <RegisterPage activeTheme={activeTheme} />}
+              {activeTab === 'approvals' && <ApprovalPage activeTheme={activeTheme} />}
+              {activeTab === 'list' && <ListPage initiatives={displayInitiatives} activeTheme={activeTheme} user={user} onView={openViewInitiative} onEdit={openEditInitiative} onDelete={handleDelete} />}
+              {activeTab === 'stats' && <StatsPage initiatives={displayInitiatives} activeTheme={activeTheme} onViewItem={openViewInitiative} pointConfig={pointConfig} onUpdatePointConfig={savePointConfig} user={user} />}
+              {activeTab === 'chat' && <ChatPage initiatives={displayInitiatives} activeTheme={activeTheme} />}
+              {activeTab === 'references' && <ReferencePage activeTheme={activeTheme} user={user} />}
+              {activeTab === 'research' && <ResearchPage activeTheme={activeTheme} user={user} onEdit={openEditProject} onAdd={openEditProject} />}
+              {activeTab === 'bubble' && <BubblePage initiatives={displayInitiatives} activeTheme={activeTheme} user={user} onView={openViewInitiative} onEdit={openEditInitiative} onDelete={handleDelete} />}
+              {activeTab === 'treemap' && <TreeMapPage initiatives={displayInitiatives} activeTheme={activeTheme} user={user} onView={openViewInitiative} onEdit={openEditInitiative} onDelete={handleDelete} />}
+            </div>
+          </Suspense>
         </main>
 
         {/* Global Modals Managed by Context */}
         <LoginModal />
-        <BatchImportModal isOpen={isBatchOpen} onClose={closeBatch} activeTheme={activeTheme} />
-        <SecurityAuditModal isOpen={isSecurityOpen} onClose={closeSecurity} activeTheme={activeTheme} user={user} />
+        <Suspense fallback={null}>
+          <BatchImportModal isOpen={isBatchOpen} onClose={closeBatch} activeTheme={activeTheme} />
+          <SecurityAuditModal isOpen={isSecurityOpen} onClose={closeSecurity} activeTheme={activeTheme} user={user} />
+        </Suspense>
         <EditInitiativeModal />
         <ViewInitiativeModal />
         <EditResearchModal />

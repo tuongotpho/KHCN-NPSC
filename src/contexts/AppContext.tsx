@@ -31,7 +31,6 @@ interface AppContextType {
   pointConfig: PointConfig;
   setPointConfig: (config: PointConfig) => void;
   savePointConfig: (config: PointConfig) => Promise<boolean>;
-  geminiApiKey: string | null;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -44,9 +43,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
   const [currentScope, setCurrentScope] = useState<InitiativeScope>('Company');
   const [pointConfig, setPointConfig] = useState<PointConfig>(DEFAULT_POINT_CONFIG);
-
-  // Gemini API Key từ env var
-  const geminiApiKey = import.meta.env.VITE_GEMINI_API_KEY || null;
 
   // Auth listener
   useEffect(() => {
@@ -125,8 +121,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     activeTheme: THEMES[theme],
     isDarkMode, setIsDarkMode,
     currentScope, setCurrentScope,
-    pointConfig, setPointConfig, savePointConfig,
-    geminiApiKey
+    pointConfig, setPointConfig, savePointConfig
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

@@ -13,7 +13,6 @@ interface SecurityAuditModalProps {
 }
 
 const SecurityAuditModal: React.FC<SecurityAuditModalProps> = ({ isOpen, onClose, activeTheme, user }) => {
-    const { geminiApiKey } = useApp();
     const [logs, setLogs] = useState<string[]>([]);
 
     // Migration State

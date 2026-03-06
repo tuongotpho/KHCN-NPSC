@@ -26,7 +26,7 @@ const INITIATIVE_FIELDS = [
 
 const EditInitiativeModal: React.FC = () => {
     const { editingInitiative, closeEditInitiative } = useModal();
-    const { activeTheme, currentScope, geminiApiKey } = useApp();
+    const { activeTheme, currentScope } = useApp();
     const { initiatives } = useInitiatives(); // Lấy dữ liệu toàn bộ sáng kiến để làm gợi ý
 
     // Local state for editing form

@@ -13,7 +13,6 @@ interface BatchImportModalProps {
 }
 
 const BatchImportModal: React.FC<BatchImportModalProps> = ({ isOpen, onClose, activeTheme }) => {
-  const { geminiApiKey } = useApp();
   const [step, setStep] = useState<'upload' | 'review'>('upload');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
